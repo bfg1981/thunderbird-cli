@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Replies now preserve Thunderbird-generated quotation/signature content instead
+  of replacing the entire compose body.
+- Reply identity is inferred from the original message account and addressed
+  recipients, with explicit CLI/MCP identity override support.
+- Reply results expose identity and native reply-relation verification metadata.
+
 ## [1.0.2] — 2026-04-18
 
 ### Added

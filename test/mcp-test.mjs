@@ -118,7 +118,11 @@ function handle({ method, path, body }) {
   if (path === "/messages/update") return { success: true };
   if (path === "/compose")
     return { success: true, action: body?.send ? "sent" : body?.open ? "draft_opened" : "draft_saved" };
-  if (path === "/reply") return { success: true, action: body?.send ? "sent" : "draft_saved" };
+  if (path === "/reply") return {
+    success: true,
+    action: body?.send ? "sent" : "draft_saved",
+    identityId: body?.identityId,
+  };
   if (path === "/forward") return { success: true, action: body?.send ? "sent" : "draft_saved" };
   if (path === "/stats")
     return { totalAccounts: 1, totalUnread: 5, totalMessages: 100, accounts: [] };
@@ -402,6 +406,11 @@ test(
   "email_reply",
   await client.callTool("email_reply", { messageId: 1, body: "Thanks" }),
   (r) => r.success
+);
+test(
+  "email_reply explicit identity",
+  await client.callTool("email_reply", { messageId: 1, body: "Thanks", from: "id1" }),
+  (r) => r.identityId === "id1"
 );
 test(
   "email_reply --send",

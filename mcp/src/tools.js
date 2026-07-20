@@ -271,6 +271,7 @@ export const tools = [
         messageId: { type: "number", description: "Message ID to reply to" },
         body: { type: "string", description: "Reply body" },
         replyAll: { type: "boolean", description: "Reply to all recipients" },
+        from: { type: "string", description: "Thunderbird identity ID to reply from" },
         mode: {
           type: "string",
           enum: ["draft", "open", "send"],
@@ -285,6 +286,7 @@ export const tools = [
         body: args.body,
         replyAll: args.replyAll || false,
       };
+      if (args.from) payload.identityId = args.from;
       const mode = args.mode || "draft";
       if (mode === "send") payload.send = true;
       else if (mode === "open") payload.open = true;
