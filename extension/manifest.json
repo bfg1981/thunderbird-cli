@@ -27,6 +27,6 @@
     "tabs"
   ],
   "background": {
-    "scripts": ["src/background.js"]
+    "scripts": ["src/recipient-control.js", "src/background.js"]
   }
 }

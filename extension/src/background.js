@@ -479,8 +479,14 @@ async function handleRequest({ method, path, body }) {
   // ─── Reply ──────────────────────────────────────────────────────
 
   if (path === "/reply" && method === "POST") {
+    const {
+      asRecipientList,
+      recipientDetailsMatch,
+      excludeFromRecipientDetails,
+    } = tbRecipientControl;
     const { messageId, body: replyBody, replyAll = false,
-            identityId, send = false, draft = false, open = false } = body;
+            identityId, to, cc, bcc, excludeRecipients = [],
+            send = false, draft = false, open = false } = body;
     const type = replyAll ? "replyToAll" : "replyToSender";
 
     // Resolve the sender from the original message's account. Without an
@@ -539,11 +545,69 @@ async function handleRequest({ method, path, body }) {
       composeDetails = await messenger.compose.getComposeDetails(tab.id);
     }
 
+    // Recipient controls are applied only after Thunderbird has established the
+    // native reply. Updating address fields does not alter the read-only reply
+    // type or relatedMessageId.
+    const recipientOverrides = {};
+    const hasRecipientOverrides = to !== undefined || cc !== undefined || bcc !== undefined;
+    if (hasRecipientOverrides) {
+      // An explicit override is an exact recipient set. Unspecified fields are
+      // cleared so an inherited CC/BCC address cannot survive unnoticed.
+      recipientOverrides.to = asRecipientList(to);
+      recipientOverrides.cc = asRecipientList(cc);
+      recipientOverrides.bcc = asRecipientList(bcc);
+      await messenger.compose.setComposeDetails(tab.id, recipientOverrides);
+      composeDetails = await messenger.compose.getComposeDetails(tab.id);
+      if (!recipientDetailsMatch(recipientOverrides, composeDetails)) {
+        await messenger.tabs.remove(tab.id);
+        throw new Error("Thunderbird did not apply the exact requested recipient set");
+      }
+    }
+
+    const exclusionResult = excludeFromRecipientDetails(composeDetails, excludeRecipients);
+    if (exclusionResult.excludedRecipients.length) {
+      if (exclusionResult.unmatchedRecipients.length) {
+        await messenger.tabs.remove(tab.id);
+        throw new Error(
+          `Excluded recipient not found: ${exclusionResult.unmatchedRecipients.join(", ")}`,
+        );
+      }
+
+      await messenger.compose.setComposeDetails(tab.id, exclusionResult.recipients);
+      composeDetails = await messenger.compose.getComposeDetails(tab.id);
+      if (!recipientDetailsMatch(exclusionResult.recipients, composeDetails)) {
+        await messenger.tabs.remove(tab.id);
+        throw new Error("Thunderbird did not apply the requested recipient exclusions");
+      }
+    }
+
+    const resolvedRecipients = {
+      to: asRecipientList(composeDetails.to),
+      cc: asRecipientList(composeDetails.cc),
+      bcc: asRecipientList(composeDetails.bcc),
+    };
+    const recipientControlApplied =
+      hasRecipientOverrides || exclusionResult.excludedRecipients.length > 0;
+    if (recipientControlApplied &&
+        resolvedRecipients.to.length + resolvedRecipients.cc.length + resolvedRecipients.bcc.length === 0) {
+      await messenger.tabs.remove(tab.id);
+      throw new Error("Reply recipient controls removed all recipients");
+    }
+    if (recipientControlApplied &&
+        (composeDetails.type !== "reply" || composeDetails.relatedMessageId !== messageId)) {
+      await messenger.tabs.remove(tab.id);
+      throw new Error("Reply relationship was not preserved after applying recipient controls");
+    }
+
     const verification = {
       identityId: composeDetails.identityId,
       type: composeDetails.type,
       relatedMessageId: composeDetails.relatedMessageId,
       quotedOriginal,
+      ...resolvedRecipients,
+      recipientControlApplied,
+      recipientsVerified: recipientControlApplied,
+      excludedRecipients: exclusionResult.excludedRecipients,
     };
     if (send) {
       await messenger.compose.sendMessage(tab.id, { mode: "sendNow" });

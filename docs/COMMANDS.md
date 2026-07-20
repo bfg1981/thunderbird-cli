@@ -154,6 +154,10 @@ tb reply <messageId> [options]
   --body-file <path>       # read from file
   --all                    # reply to all
   --from <identityId>      # override the identity inferred from the message account
+  --to <address>           # replace To recipients; repeatable
+  --cc <address>           # replace CC recipients; repeatable
+  --bcc <address>          # replace BCC recipients; repeatable
+  --exclude-recipient <address> # remove from To/CC/BCC; repeatable
   --draft / --open / --send
 
 tb forward <messageId> [options]
@@ -164,7 +168,13 @@ tb forward <messageId> [options]
 
 Replies preserve Thunderbird's native reply relationship, generated signature,
 and quotation. When `--from` is omitted, the identity is selected from the
-original message's account by matching its addressed recipients.
+original message's account by matching its addressed recipients. Recipient
+controls are applied to the native reply, and the result returns the resolved
+`to`, `cc`, and `bcc` lists plus `recipientsVerified`.
+
+Using any recipient replacement option creates an exact set and clears
+unspecified recipient fields. Exclusion alone retains every other recipient
+chosen by Thunderbird.
 
 ## Attachments
 

@@ -10,7 +10,7 @@
     "mcp"
   ],
   "scripts": {
-    "test": "node test/quick-test.mjs",
+    "test": "node test/recipient-control-test.mjs && node test/quick-test.mjs",
     "test:mcp": "node test/mcp-test.mjs",
     "bridge": "node bridge/bridge.js",
     "tb": "node cli/src/cli.js",

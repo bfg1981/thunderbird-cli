@@ -390,6 +390,10 @@ tb reply <messageId> [options]
   --html                   # HTML reply
   --all                    # reply to all
   --from <identityId>      # override identity inferred from original account/recipients
+  --to <address>           # replace To recipients; repeatable
+  --cc <address>           # replace CC recipients; repeatable
+  --bcc <address>          # replace BCC recipients; repeatable
+  --exclude-recipient <address> # remove from To/CC/BCC; repeatable
   --draft                  # save as draft (default)
   --open                   # open in Thunderbird compose window
   --send                   # send immediately
@@ -407,7 +411,13 @@ Replies are created with `messenger.compose.beginReply()`. The supplied body is
 prepended after Thunderbird establishes the native reply relationship and
 generates identity-specific signature/quotation content. The result includes
 `identityId`, compose `type`, `relatedMessageId`, and `quotedOriginal` for
-verification.
+verification. Recipient controls are applied after native reply creation. The
+result also includes the final `to`, `cc`, and `bcc` lists,
+`recipientControlApplied`, `recipientsVerified`, and `excludedRecipients`.
+
+Using any of `--to`, `--cc`, or `--bcc` supplies an exact recipient set: fields
+not supplied are cleared. Use `--exclude-recipient` without an exact override to
+retain Thunderbird's other resolved reply recipients.
 
 ### 13. Attachments
 

@@ -264,7 +264,7 @@ export const tools = [
   {
     name: "email_reply",
     description:
-      "Reply to a message. Default mode is 'draft'. Use mode='send' for immediate send. Set replyAll=true to reply to all recipients.",
+      "Reply to a message. Default mode is 'draft'. Use replyAll=true for all recipients, recipient overrides for an exact set, or excludeRecipients to remove addresses.",
     inputSchema: {
       type: "object",
       properties: {
@@ -272,6 +272,26 @@ export const tools = [
         body: { type: "string", description: "Reply body" },
         replyAll: { type: "boolean", description: "Reply to all recipients" },
         from: { type: "string", description: "Thunderbird identity ID to reply from" },
+        to: {
+          type: "array",
+          items: { type: "string" },
+          description: "Exact replacement for the To recipient list",
+        },
+        cc: {
+          type: "array",
+          items: { type: "string" },
+          description: "Exact replacement for the CC recipient list",
+        },
+        bcc: {
+          type: "array",
+          items: { type: "string" },
+          description: "Exact replacement for the BCC recipient list",
+        },
+        excludeRecipients: {
+          type: "array",
+          items: { type: "string" },
+          description: "Addresses to remove from the resolved To, CC, and BCC lists",
+        },
         mode: {
           type: "string",
           enum: ["draft", "open", "send"],
@@ -287,6 +307,10 @@ export const tools = [
         replyAll: args.replyAll || false,
       };
       if (args.from) payload.identityId = args.from;
+      if (args.to?.length) payload.to = args.to;
+      if (args.cc?.length) payload.cc = args.cc;
+      if (args.bcc?.length) payload.bcc = args.bcc;
+      if (args.excludeRecipients?.length) payload.excludeRecipients = args.excludeRecipients;
       const mode = args.mode || "draft";
       if (mode === "send") payload.send = true;
       else if (mode === "open") payload.open = true;

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Replies can replace To/CC/BCC recipients or exclude individual addresses while
+  preserving Thunderbird's native reply relationship.
+- Reply results include the final resolved recipient lists for verification.
+
 ### Fixed
 - Replies now preserve Thunderbird-generated quotation/signature content instead
   of replacing the entire compose body.

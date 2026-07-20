@@ -118,11 +118,21 @@ function handle({ method, path, body }) {
   if (path === "/messages/update") return { success: true };
   if (path === "/compose")
     return { success: true, action: body?.send ? "sent" : body?.open ? "draft_opened" : "draft_saved" };
-  if (path === "/reply") return {
-    success: true,
-    action: body?.send ? "sent" : "draft_saved",
-    identityId: body?.identityId,
-  };
+  if (path === "/reply") {
+    const excluded = new Set((body?.excludeRecipients || []).map((value) => value.toLowerCase()));
+    const filter = (values) => values.filter((value) => !excluded.has(value.toLowerCase()));
+    return {
+      success: true,
+      action: body?.send ? "sent" : body?.open ? "draft_opened" : "draft_saved",
+      identityId: body?.identityId,
+      to: filter(body?.to || ["sender@example.com"]),
+      cc: filter(body?.cc || []),
+      bcc: filter(body?.bcc || []),
+      recipientControlApplied: Boolean(body?.to || body?.cc || body?.bcc || excluded.size),
+      recipientsVerified: Boolean(body?.to || body?.cc || body?.bcc || excluded.size),
+      excludedRecipients: [...excluded],
+    };
+  }
   if (path === "/forward") return { success: true, action: body?.send ? "sent" : "draft_saved" };
   if (path === "/stats")
     return { totalAccounts: 1, totalUnread: 5, totalMessages: 100, accounts: [] };
@@ -411,6 +421,18 @@ test(
   "email_reply explicit identity",
   await client.callTool("email_reply", { messageId: 1, body: "Thanks", from: "id1" }),
   (r) => r.identityId === "id1"
+);
+test(
+  "email_reply recipient controls",
+  await client.callTool("email_reply", {
+    messageId: 1,
+    body: "Thanks",
+    to: ["kept@example.com", "removed@example.com"],
+    cc: ["copy@example.com"],
+    excludeRecipients: ["removed@example.com"],
+  }),
+  (r) => r.recipientsVerified && r.to?.length === 1 && r.to[0] === "kept@example.com" &&
+    r.cc?.[0] === "copy@example.com" && r.excludedRecipients?.[0] === "removed@example.com"
 );
 test(
   "email_reply --send",
