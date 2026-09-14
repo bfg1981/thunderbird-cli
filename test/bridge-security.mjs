@@ -9,7 +9,7 @@
  */
 
 import { spawn } from "child_process";
-import { request } from "http";
+import { createServer, request } from "http";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { WebSocket } from "ws";
@@ -189,6 +189,26 @@ await withBridge({ TB_BRIDGE_WS_HEARTBEAT_MS: "150" }, async () => {
   await sleep(600);
   test("unresponsive socket is terminated", await extensionStatus(), "disconnected");
 });
+
+// ─── Startup: port already taken ────────────────────────────────────
+
+console.log("\n\x1b[1mPort in use\x1b[0m");
+for (const [label, port] of [["WebSocket", WS_PORT], ["HTTP", PORT]]) {
+  const blocker = createServer();
+  await new Promise((r) => blocker.listen(port, "127.0.0.1", r));
+  const proc = spawn(process.execPath, [BRIDGE, "--port", String(PORT), "--ws-port", String(WS_PORT)], {
+    env: { ...process.env, TB_AUTH_TOKEN: undefined },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let out = "";
+  proc.stdout.on("data", (c) => (out += c));
+  proc.stderr.on("data", (c) => (out += c));
+  const code = await new Promise((r) => proc.on("exit", r));
+  await new Promise((r) => blocker.close(r));
+  test(`${label} port taken → exit code 1`, code, 1);
+  test(`${label} port taken → explains and names the port`, out.includes(`Cannot listen on 127.0.0.1:${port}`) && out.includes(`lsof -nP -iTCP:${port}`), true);
+  test(`${label} port taken → no raw stack trace`, out.includes("Unhandled 'error' event"), false);
+}
 
 console.log(`\n\x1b[1m${"─".repeat(40)}\x1b[0m`);
 console.log(`\x1b[1m${passed} passed, ${failed} failed, ${passed + failed} total\x1b[0m\n`);

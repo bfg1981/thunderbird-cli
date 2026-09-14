@@ -297,6 +297,27 @@ const httpServer = createServer(async (req, res) => {
   }
 });
 
+// A taken port is the most common startup failure (often an editor's port forwarding); explain it
+// instead of crashing with an unhandled 'error' event.
+function onServerError(label, port) {
+  return (err) => {
+    if (err.code !== "EADDRINUSE" && err.code !== "EACCES") {
+      console.error(`[bridge] ${label} server error:`, err.message);
+      return;
+    }
+    console.error(`[bridge] Cannot listen on 127.0.0.1:${port} (${label}): ${err.code === "EADDRINUSE" ? "port already in use" : "permission denied"}.`);
+    console.error(`[bridge] See what holds it:  lsof -nP -iTCP:${port} -sTCP:LISTEN`);
+    console.error(
+      label === "WebSocket"
+        ? `[bridge] The Thunderbird extension always connects to ws://127.0.0.1:${port}, so free this port (e.g. stop editor port forwarding) rather than changing it.`
+        : `[bridge] Or pick another HTTP port: --port <n>, and set TB_BRIDGE_PORT=<n> for tb / tb-mcp.`
+    );
+    process.exit(1);
+  };
+}
+wss.on("error", onServerError("WebSocket", WS_PORT));
+httpServer.on("error", onServerError("HTTP", HTTP_PORT));
+
 httpServer.listen(HTTP_PORT, "127.0.0.1", () => {
   console.log(`[bridge] HTTP server on http://127.0.0.1:${HTTP_PORT}`);
   console.log(`[bridge] WebSocket server on ws://127.0.0.1:${WS_PORT}`);
