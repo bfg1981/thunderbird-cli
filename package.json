@@ -13,6 +13,7 @@
     "test": "node test/quick-test.mjs",
     "test:mcp": "node test/mcp-test.mjs",
     "test:bridge-auth": "node test/bridge-auth.mjs",
+    "test:bridge-security": "node test/bridge-security.mjs",
     "bridge": "node bridge/bridge.js",
     "tb": "node cli/src/cli.js",
     "build:xpi": "node scripts/build-xpi.mjs"

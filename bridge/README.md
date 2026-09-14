@@ -88,6 +88,24 @@ started.
 > The WebSocket listener on `:7701`, which the Thunderbird extension connects to, is **not**
 > covered by `TB_AUTH_TOKEN`.
 
+## Browser protections
+
+Independently of the token, the bridge refuses traffic that can only come from a web page in
+the user's browser, so a hostile site cannot send mail, delete messages, or impersonate the
+extension:
+
+- HTTP requests with an `Origin` header not listed in `TB_BRIDGE_CORS_ORIGINS` get `403`
+  (default allowlist: the bridge's own `http://127.0.0.1:<port>` and `http://localhost:<port>`).
+- HTTP requests whose `Host` is not an IP literal, `localhost`, `*.localhost` or `*.internal`
+  (e.g. `host.docker.internal`) get `403` — this blocks DNS rebinding. Add other names with
+  `TB_BRIDGE_ALLOWED_HOSTS=name1,name2`.
+- WebSocket handshakes from `http:`, `https:`, `file:` or `null` origins are refused.
+
+`tb`, `tb-mcp` and `curl` send no `Origin` header and are unaffected.
+
+The bridge also pings the extension every 30 s (`TB_BRIDGE_WS_HEARTBEAT_MS`) and drops sockets
+that stop answering, so requests fail fast after the machine sleeps instead of hanging.
+
 ## Endpoints
 
 ### `GET /bridge/status`

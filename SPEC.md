@@ -576,6 +576,7 @@ covered by it.
 | `BRIDGE_UNREACHABLE` | Bridge is not running |
 | `EXTENSION_DISCONNECTED` | Thunderbird extension not connected to bridge |
 | `AUTH_REQUIRED` | Bridge requires `TB_AUTH_TOKEN`; the request had none or the wrong one |
+| `FORBIDDEN` | Bridge refused a browser `Origin` or non-local `Host` header (see `TB_BRIDGE_CORS_ORIGINS`, `TB_BRIDGE_ALLOWED_HOSTS`) |
 | `TIMEOUT` | Request to extension timed out (30s) |
 | `NOT_FOUND` | Message/folder/account not found |
 | `INVALID_ARGS` | Bad CLI arguments |
