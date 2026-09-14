@@ -13,7 +13,7 @@ A small Node.js daemon (`tb-bridge`) that runs on your machine and forwards HTTP
 
 ```
 HTTP client (CLI / MCP / curl) ──HTTP→ tb-bridge ──WS→ Thunderbird Extension
-                                       :18770          :18771
+                                       :7700           :7701
 ```
 
 - **Stateless** — each request gets a UUID, response correlated, then forgotten
@@ -35,8 +35,8 @@ tb-bridge
 
 You should see:
 ```
-[bridge] HTTP server on http://127.0.0.1:18770
-[bridge] WebSocket server on ws://127.0.0.1:18771
+[bridge] HTTP server on http://127.0.0.1:7700
+[bridge] WebSocket server on ws://127.0.0.1:7701
 [bridge] Auth: disabled — any local process can call this bridge (set TB_AUTH_TOKEN to require a token)
 [bridge] Waiting for Thunderbird extension to connect...
 ```
@@ -66,7 +66,7 @@ TB_AUTH_TOKEN=$(openssl rand -hex 32) tb-bridge
 The startup banner then reports `[bridge] Auth: enabled`, and every HTTP request must carry it:
 
 ```bash
-curl -H "Authorization: Bearer $TB_AUTH_TOKEN" http://127.0.0.1:18770/bridge/status
+curl -H "Authorization: Bearer $TB_AUTH_TOKEN" http://127.0.0.1:7700/bridge/status
 ```
 
 Requests with a missing, malformed, or incorrect token get `401` with a JSON error body. The
@@ -85,7 +85,7 @@ Give the token only to the callers that should have mailbox access — putting i
 local process can read it (a world-readable file, a shared shell profile) puts you back where you
 started.
 
-> The WebSocket listener on `:18771`, which the Thunderbird extension connects to, is **not**
+> The WebSocket listener on `:7701`, which the Thunderbird extension connects to, is **not**
 > covered by `TB_AUTH_TOKEN`.
 
 ## Browser protections
@@ -114,8 +114,8 @@ Returns bridge state without requiring the extension. Use this to check the daem
 Subject to authentication when `TB_AUTH_TOKEN` is set.
 
 ```bash
-curl http://127.0.0.1:18770/bridge/status
-# {"bridge":"running","extension":"connected","httpPort":18770,"wsPort":18771}
+curl http://127.0.0.1:7700/bridge/status
+# {"bridge":"running","extension":"connected","httpPort":7700,"wsPort":7701}
 ```
 
 ### Everything else

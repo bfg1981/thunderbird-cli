@@ -235,7 +235,7 @@ tb stats --compact
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `TB_BRIDGE_HOST` | `127.0.0.1` | Bridge host (`host.docker.internal` in Docker) |
-| `TB_BRIDGE_PORT` | `18770` | Bridge HTTP port |
+| `TB_BRIDGE_PORT` | `7700` | Bridge HTTP port |
 | `TB_AUTH_TOKEN` | (none) | Auth token for bridge |
 
 Config file: `~/.config/thunderbird-cli/config.json`

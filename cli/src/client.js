@@ -15,7 +15,7 @@ const CONFIG_PATHS = [
 function loadConfig() {
   const defaults = {
     host: "127.0.0.1",
-    port: 18770,
+    port: 7700,
     authToken: null,
     defaults: { limit: 25, fields: null, compact: false, maxBody: null },
   };

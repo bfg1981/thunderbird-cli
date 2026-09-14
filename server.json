@@ -25,7 +25,7 @@
         },
         {
           "name": "TB_BRIDGE_PORT",
-          "description": "HTTP port of the thunderbird-cli-bridge (default: 18770).",
+          "description": "HTTP port of the thunderbird-cli-bridge (default: 7700).",
           "isRequired": false,
           "format": "string",
           "isSecret": false

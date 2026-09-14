@@ -15,9 +15,9 @@
 │  Thunderbird Desktop Client (visual control + storage)      │
 │       ↕                                                     │
 │  Thunderbird WebExtension (background.js)                   │
-│       ↕ WebSocket ws://127.0.0.1:18771                     │
+│       ↕ WebSocket ws://127.0.0.1:7701                      │
 │  Bridge Server (bridge.js — Node.js, always-on daemon)      │
-│       ↕ HTTP http://127.0.0.1:18770                        │
+│       ↕ HTTP http://127.0.0.1:7700                         │
 │       ┌────────────────────┬──────────────────────┐         │
 │       ↕                    ↕                      ↕         │
 │  tb CLI (Node)      tb-mcp Server          Direct HTTP      │
@@ -27,7 +27,7 @@
 │  (Claude Code)      (stdio MCP transport)                   │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
-         ↕ http://host.docker.internal:18770
+         ↕ http://host.docker.internal:7700
 ┌─── Docker / Devcontainer ──────────────────────────────────┐
 │  tb CLI / tb-mcp also runnable from container               │
 └─────────────────────────────────────────────────────────────┘
@@ -537,8 +537,8 @@ Config file: `~/.config/thunderbird-cli/config.json`
 {
   "bridge": {
     "host": "127.0.0.1",
-    "httpPort": 18770,
-    "wsPort": 18771,
+    "httpPort": 7700,
+    "wsPort": 7701,
     "authToken": null
   },
   "defaults": {
@@ -689,7 +689,7 @@ thunderbird-cli/
   "postCreateCommand": "cd /workspace/cli && npm install && cd /workspace/bridge && npm install",
   "containerEnv": {
     "TB_BRIDGE_HOST": "host.docker.internal",
-    "TB_BRIDGE_PORT": "18770"
+    "TB_BRIDGE_PORT": "7700"
   },
   "mounts": [],
   "forwardPorts": []

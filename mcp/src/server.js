@@ -5,7 +5,7 @@
  *
  * Exposes Thunderbird email management as MCP tools for Claude Desktop and
  * other MCP-compatible clients. Communicates with the local bridge daemon
- * (default: 127.0.0.1:18770) which forwards to the Thunderbird WebExtension.
+ * (default: 127.0.0.1:7700) which forwards to the Thunderbird WebExtension.
  *
  * Usage:
  *   tb-mcp                                # uses defaults

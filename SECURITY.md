@@ -80,7 +80,7 @@ accepts any local non-browser connection.
 Any site open in a browser on the same machine can send requests to `127.0.0.1`. Without
 transport checks it could (a) fire blind cross-origin POSTs — CORS hides the response but the
 request still executes, e.g. `/compose` with `send: true` or `/messages/delete`; (b) use DNS
-rebinding to become same-origin with the bridge and read mail; (c) open a WebSocket to `:18771`
+rebinding to become same-origin with the bridge and read mail; (c) open a WebSocket to `:7701`
 and take over the extension slot, receiving every CLI request and returning forged results.
 
 Defense (always on, no configuration): the bridge rejects HTTP requests carrying an `Origin`

@@ -17,7 +17,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `tb recent --account` and `--unread` were ignored by the extension (#4).
 
 ### Changed
-- **Breaking:** default ports moved from 7700/7701 to **18770** (HTTP) / **18771** (extension WebSocket) to avoid clashes with editor port forwarding and other dev tools. The extension from this release connects to 18771 only. To pair a new bridge with the previously released 2.0.0 extension, run `tb-bridge --port 7700 --ws-port 7701` and set `TB_BRIDGE_PORT=7700` for `tb` / `tb-mcp`.
 - Extension reconnects with backoff (3s → 15s cap) and immediately on return from idle; bridge drops unresponsive extension sockets via ping/pong (#20). Extension now requests the `idle` permission.
 - `read-batch`, bulk tag/fetch, folder fetch and thread lookups run with bounded parallelism; attachment base64 encoding is chunked (#20).
 - MCP `email_search` accepts filters without a text query (#20).

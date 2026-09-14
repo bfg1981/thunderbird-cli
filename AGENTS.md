@@ -18,7 +18,7 @@ Four published artifacts, one architecture:
 ```
 AI Agent ─→ tb CLI      ─┐
                           ├─→ bridge daemon ─→ Thunderbird WebExtension ─→ messenger.* APIs → your accounts
-Claude   ─→ tb-mcp MCP   ─┘      HTTP :18770          WebSocket :18771
+Claude   ─→ tb-mcp MCP   ─┘      HTTP :7700          WebSocket :7701
 ```
 
 Everything localhost-only. Thunderbird holds credentials; no creds pass through the agent.

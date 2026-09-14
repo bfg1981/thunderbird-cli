@@ -1,7 +1,7 @@
 ---
 name: thunderbird-cli
 description: Manage email through Mozilla Thunderbird — read, search, compose, reply, forward, archive, move, tag, download attachments, and bulk-operate across all configured IMAP/SMTP accounts via the thunderbird-cli-mcp server. Use whenever the user mentions "email", "inbox", "mailbox", "unread", "messages", asks to "check email", "read my mail", "search for an email about X", "draft a reply", "forward that message", "archive old newsletters", "download attachment", "how many unread", or names specific folders (Inbox, Sent, Drafts, Archive, Junk). Do NOT use for calendar/contacts-only work (use a dedicated calendar skill instead) or for services that are not configured in the user's Thunderbird (ask which account to use first).
-compatibility: Requires Mozilla Thunderbird 128+ with the thunderbird-cli WebExtension installed, the thunderbird-cli-bridge daemon running on 127.0.0.1:18770, and the thunderbird-cli-mcp MCP server configured in the client. All three install via `npm install -g thunderbird-cli-bridge` + the signed XPI from https://github.com/vitalio-sh/thunderbird-cli/releases. Localhost-only — no cloud, no credentials outside Thunderbird.
+compatibility: Requires Mozilla Thunderbird 128+ with the thunderbird-cli WebExtension installed, the thunderbird-cli-bridge daemon running on 127.0.0.1:7700, and the thunderbird-cli-mcp MCP server configured in the client. All three install via `npm install -g thunderbird-cli-bridge` + the signed XPI from https://github.com/vitalio-sh/thunderbird-cli/releases. Localhost-only — no cloud, no credentials outside Thunderbird.
 license: MIT
 metadata:
   author: Vitalii Ionov
