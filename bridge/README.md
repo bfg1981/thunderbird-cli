@@ -18,7 +18,7 @@ HTTP client (CLI / MCP / curl) ──HTTP→ tb-bridge ──WS→ Thunderbird E
 
 - **Stateless** — each request gets a UUID, response correlated, then forgotten
 - **Localhost-only** — listens on `127.0.0.1` (no external exposure). Note that this bounds *remote* access only: any process running as the same OS user can reach the bridge. Set `TB_AUTH_TOKEN` to require a token — see [Authentication](#authentication)
-- **Auto-reconnect on the extension side** — if Thunderbird restarts, the extension reconnects within 3s
+- **Auto-reconnect on the extension side** — the extension retries after 3s, backing off to every 15s while the bridge is down, and immediately when the machine returns from idle
 - **Zero config** — works out of the box with default ports
 
 ## Install

@@ -24,9 +24,10 @@
     "messagesTags",
     "messagesImport",
     "accountsFolders",
+    "idle",
     "tabs"
   ],
   "background": {
-    "scripts": ["src/background.js"]
+    "scripts": ["src/thread-utils.js", "src/background.js"]
   }
 }

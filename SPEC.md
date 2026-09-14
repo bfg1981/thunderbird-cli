@@ -599,7 +599,7 @@ Timeout: 30 seconds. Configurable via `--timeout <ms>` flag on CLI.
 
 1. **Pure WebExtension** — manifest_version 2, no experiment_apis
 2. **messenger.* API** — uses Thunderbird's native WebExtension APIs
-3. **Auto-reconnect** — reconnects to bridge WebSocket every 3 seconds if disconnected
+3. **Auto-reconnect** — reconnects to bridge WebSocket with backoff (3s, 6s, 12s, then every 15s) if disconnected; retries immediately when the user returns from idle
 4. **No state** — extension is stateless; all state lives in Thunderbird's mail store
 5. **Download detection** — use `messenger.messages.getRaw()` availability to detect download state
 6. **HTML conversion** — use built-in DOMParser for HTML-to-text (available in extension context)

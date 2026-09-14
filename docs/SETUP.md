@@ -164,7 +164,7 @@ Environment variables override config file values:
 - Is the extension loaded? Check `about:debugging` in Thunderbird
 - Look at Thunderbird error console (Ctrl+Shift+J / Cmd+Shift+J) for WebSocket errors
 - Bridge must be running BEFORE loading the extension
-- The extension auto-reconnects every 3 seconds
+- The extension auto-reconnects after 3s, backing off to every 15s while the bridge is down (and immediately when you return from idle)
 
 ### "Request timed out"
 - SMTP send operations can take 30-60 seconds. Use `--timeout 60000`
