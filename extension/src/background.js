@@ -6,7 +6,7 @@
  * Handles requests using messenger.* APIs.
  */
 
-const WS_URL = "ws://127.0.0.1:7701";
+const WS_URL = "ws://127.0.0.1:18771";
 // Reconnect backoff while the bridge is absent: 3s, 6s, 12s, then every 15s. Cuts idle wakeups
 // without making a freshly started bridge wait long for the extension.
 const RECONNECT_BASE_MS = 3000;

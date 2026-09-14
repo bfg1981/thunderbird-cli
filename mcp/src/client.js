@@ -16,7 +16,7 @@ const CONFIG_PATHS = [
 ];
 
 function loadConfig() {
-  const defaults = { host: "127.0.0.1", port: 7700, authToken: null };
+  const defaults = { host: "127.0.0.1", port: 18770, authToken: null };
   const envHost = process.env.TB_BRIDGE_HOST;
   const envPort = process.env.TB_BRIDGE_PORT;
   const envToken = process.env.TB_AUTH_TOKEN;

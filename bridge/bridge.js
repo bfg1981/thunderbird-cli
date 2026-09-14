@@ -3,11 +3,11 @@
 /**
  * Thunderbird AI Bridge Server
  *
- * HTTP server (port 7700) for CLI requests.
- * WebSocket server (port 7701) for Thunderbird extension.
+ * HTTP server (port 18770) for CLI requests.
+ * WebSocket server (port 18771) for Thunderbird extension.
  * Forwards: CLI HTTP → WebSocket → Extension → response.
  *
- * Usage: node bridge.js [--port 7700] [--ws-port 7701]
+ * Usage: node bridge.js [--port 18770] [--ws-port 18771]
  *
  * Environment variables:
  *   TB_BRIDGE_TIMEOUT  default per-request timeout in ms (default: 120000)
@@ -28,8 +28,8 @@ import { isIP } from "net";
 import { WebSocketServer } from "ws";
 import { randomUUID, timingSafeEqual } from "crypto";
 
-const HTTP_PORT = parseInt(process.argv.find((_, i, a) => a[i - 1] === "--port") || "7700");
-const WS_PORT = parseInt(process.argv.find((_, i, a) => a[i - 1] === "--ws-port") || "7701");
+const HTTP_PORT = parseInt(process.argv.find((_, i, a) => a[i - 1] === "--port") || "18770");
+const WS_PORT = parseInt(process.argv.find((_, i, a) => a[i - 1] === "--ws-port") || "18771");
 const DEFAULT_TIMEOUT = parseInt(process.env.TB_BRIDGE_TIMEOUT || "120000");
 const HEARTBEAT_INTERVAL_MS = parseInt(process.env.TB_BRIDGE_WS_HEARTBEAT_MS || "30000");
 const CORS_ALLOWED_ORIGINS = new Set(

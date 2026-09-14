@@ -5,13 +5,13 @@
 ```
 Host (macOS):
   Thunderbird Desktop → Extension (background.js)
-       ↕ WebSocket ws://127.0.0.1:7701
+       ↕ WebSocket ws://127.0.0.1:18771
   Bridge Server (bridge.js) — stateless HTTP↔WS proxy
-       ↕ HTTP http://127.0.0.1:7700
+       ↕ HTTP http://127.0.0.1:18770
 
 Docker/Devcontainer:
   AI Agent → tb CLI (HTTP client)
-       ↕ http://host.docker.internal:7700
+       ↕ http://host.docker.internal:18770
 ```
 
 Pure WebExtension. No Experiment APIs. Requires Thunderbird 128+.
@@ -26,8 +26,8 @@ node bridge.js
 
 You should see:
 ```
-[bridge] HTTP server on http://127.0.0.1:7700
-[bridge] WebSocket server on ws://127.0.0.1:7701
+[bridge] HTTP server on http://127.0.0.1:18770
+[bridge] WebSocket server on ws://127.0.0.1:18771
 [bridge] Waiting for Thunderbird extension to connect...
 ```
 
@@ -117,14 +117,14 @@ Or add to `~/.config/thunderbird-cli/config.json`:
 ```json
 {
   "host": "host.docker.internal",
-  "port": 7700
+  "port": 18770
 }
 ```
 
 Or in `.env`:
 ```
 TB_BRIDGE_HOST=host.docker.internal
-TB_BRIDGE_PORT=7700
+TB_BRIDGE_PORT=18770
 ```
 
 ## Configuration
@@ -135,7 +135,7 @@ Config file location: `~/.config/thunderbird-cli/config.json`
 {
   "bridge": {
     "host": "127.0.0.1",
-    "httpPort": 7700,
+    "httpPort": 18770,
     "authToken": null
   },
   "defaults": {
@@ -155,7 +155,7 @@ Environment variables override config file values:
 ## Troubleshooting
 
 ### "Bridge unreachable"
-- Is the bridge running? Check: `curl http://127.0.0.1:7700/bridge/status`
+- Is the bridge running? Check: `curl http://127.0.0.1:18770/bridge/status`
   (if the bridge was started with `TB_AUTH_TOKEN`, add `-H "Authorization: Bearer $TB_AUTH_TOKEN"`, or the call returns 401)
 - In Docker, use `host.docker.internal` instead of `127.0.0.1`
 
@@ -172,8 +172,8 @@ Environment variables override config file values:
 - Check Thunderbird isn't stuck on a sync operation
 
 ### Extension loads but doesn't connect
-- Verify port 7701 is not blocked or in use
-- Check bridge is running: `curl http://127.0.0.1:7700/bridge/status` (add `-H "Authorization: Bearer $TB_AUTH_TOKEN"` if auth is enabled)
+- Verify port 18771 is not blocked or in use
+- Check bridge is running: `curl http://127.0.0.1:18770/bridge/status` (add `-H "Authorization: Bearer $TB_AUTH_TOKEN"` if auth is enabled)
 - Try restarting the bridge, then reload the extension
 
 ### Folder counts show 0

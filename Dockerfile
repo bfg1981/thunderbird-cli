@@ -27,7 +27,7 @@ RUN npm install -g thunderbird-cli-mcp@latest
 
 # Defaults — overridable at runtime.
 ENV TB_BRIDGE_HOST=host.docker.internal
-ENV TB_BRIDGE_PORT=7700
+ENV TB_BRIDGE_PORT=18770
 
 # No-network listen, pure stdio transport.
 ENTRYPOINT ["tb-mcp"]

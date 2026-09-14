@@ -133,7 +133,7 @@ test("idle permission declared for wake-up reconnect", manifest.permissions.incl
 // ─── Reconnect ──────────────────────────────────────────────────────
 
 console.log("\n\x1b[1mReconnect\x1b[0m");
-test("connects on load", MockWebSocket.instances.length === 1 && lastSocket().url === "ws://127.0.0.1:7701");
+test("connects on load", MockWebSocket.instances.length === 1 && lastSocket().url === "ws://127.0.0.1:18771");
 const delays = [];
 for (let i = 0; i < 6; i++) {
   lastSocket().fail();

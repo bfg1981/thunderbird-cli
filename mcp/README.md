@@ -45,7 +45,7 @@ The MCP server is stateless. It calls the bridge daemon which forwards to the Th
 You need three things running on your machine:
 
 1. **Mozilla Thunderbird 128+** with your email accounts configured
-2. **The thunderbird-cli bridge daemon** running on `127.0.0.1:7700`
+2. **The thunderbird-cli bridge daemon** running on `127.0.0.1:18770`
 3. **The thunderbird-cli WebExtension** loaded in Thunderbird
 
 See the [main repo setup guide](https://github.com/vitalio-sh/thunderbird-cli/blob/main/docs/SETUP.md) for installing the bridge and extension.
@@ -144,7 +144,7 @@ The MCP server reads these environment variables (set in your Claude Desktop con
 | Variable | Default | Purpose |
 |---|---|---|
 | `TB_BRIDGE_HOST` | `127.0.0.1` | Bridge daemon host |
-| `TB_BRIDGE_PORT` | `7700` | Bridge daemon HTTP port |
+| `TB_BRIDGE_PORT` | `18770` | Bridge daemon HTTP port |
 | `TB_AUTH_TOKEN` | (none) | Optional auth token |
 
 Example with custom bridge host:
@@ -157,7 +157,7 @@ Example with custom bridge host:
       "args": ["-y", "thunderbird-cli-mcp"],
       "env": {
         "TB_BRIDGE_HOST": "127.0.0.1",
-        "TB_BRIDGE_PORT": "7700"
+        "TB_BRIDGE_PORT": "18770"
       }
     }
   }
@@ -193,7 +193,7 @@ See [SECURITY.md](https://github.com/vitalio-sh/thunderbird-cli/blob/main/SECURI
 ## Troubleshooting
 
 ### "Bridge unreachable" / connection errors
-- Is the bridge daemon running on `127.0.0.1:7700`? Test: `curl http://127.0.0.1:7700/bridge/status`
+- Is the bridge daemon running on `127.0.0.1:18770`? Test: `curl http://127.0.0.1:18770/bridge/status`
   (if the bridge was started with `TB_AUTH_TOKEN`, add `-H "Authorization: Bearer $TB_AUTH_TOKEN"`, or the call returns 401)
 - Is Thunderbird running with the extension loaded?
 - Check Thunderbird's add-on debugging console for WebSocket errors

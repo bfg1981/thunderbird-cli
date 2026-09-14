@@ -25,7 +25,7 @@ All output is JSON wrapped in `{ok, data}` / `{ok, error, code}`.
 This package alone is **not enough**. You need:
 
 1. **Mozilla Thunderbird 128+** with email accounts configured
-2. **`thunderbird-cli-bridge`** daemon running on `127.0.0.1:7700`
+2. **`thunderbird-cli-bridge`** daemon running on `127.0.0.1:18770`
 3. **The signed Thunderbird WebExtension** loaded in Thunderbird
 
 See the [main repo setup guide](https://github.com/vitalio-sh/thunderbird-cli/blob/main/docs/SETUP.md) for the full installation.
@@ -60,7 +60,7 @@ Full reference: [docs/COMMANDS.md](https://github.com/vitalio-sh/thunderbird-cli
 | Env var | Default |
 |---|---|
 | `TB_BRIDGE_HOST` | `127.0.0.1` |
-| `TB_BRIDGE_PORT` | `7700` |
+| `TB_BRIDGE_PORT` | `18770` |
 | `TB_AUTH_TOKEN` | (none) |
 
 Config file: `~/.config/thunderbird-cli/config.json`
