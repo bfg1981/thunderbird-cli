@@ -50,7 +50,7 @@ The extension is signed by Mozilla through addons.thunderbird.net for self-distr
 
 1. Download the latest signed XPI from one of these locations:
    - **GitHub Releases:** https://github.com/vitalio-sh/thunderbird-cli/releases/latest
-   - **Directly from `main`:** [`dist/releases/thunderbird_ai_bridge-2.0.0-tb.xpi`](../dist/releases/thunderbird_ai_bridge-2.0.0-tb.xpi)
+   - **Directly from `main`:** [`dist/releases/thunderbird_ai_bridge-2.1.0-tb.xpi`](../dist/releases/thunderbird_ai_bridge-2.1.0-tb.xpi)
 2. Open Thunderbird → **Add-ons and Themes**
 3. Click the ⚙ gear icon → **Install Add-on From File…**
 4. Select the downloaded `.xpi`
