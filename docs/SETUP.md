@@ -156,6 +156,7 @@ Environment variables override config file values:
 
 ### "Bridge unreachable"
 - Is the bridge running? Check: `curl http://127.0.0.1:7700/bridge/status`
+  (if the bridge was started with `TB_AUTH_TOKEN`, add `-H "Authorization: Bearer $TB_AUTH_TOKEN"`, or the call returns 401)
 - In Docker, use `host.docker.internal` instead of `127.0.0.1`
 
 ### "Extension not connected"
@@ -163,7 +164,7 @@ Environment variables override config file values:
 - Is the extension loaded? Check `about:debugging` in Thunderbird
 - Look at Thunderbird error console (Ctrl+Shift+J / Cmd+Shift+J) for WebSocket errors
 - Bridge must be running BEFORE loading the extension
-- The extension auto-reconnects every 3 seconds
+- The extension auto-reconnects after 3s, backing off to every 15s while the bridge is down (and immediately when you return from idle)
 
 ### "Request timed out"
 - SMTP send operations can take 30-60 seconds. Use `--timeout 60000`
@@ -172,7 +173,7 @@ Environment variables override config file values:
 
 ### Extension loads but doesn't connect
 - Verify port 7701 is not blocked or in use
-- Check bridge is running: `curl http://127.0.0.1:7700/bridge/status`
+- Check bridge is running: `curl http://127.0.0.1:7700/bridge/status` (add `-H "Authorization: Bearer $TB_AUTH_TOKEN"` if auth is enabled)
 - Try restarting the bridge, then reload the extension
 
 ### Folder counts show 0

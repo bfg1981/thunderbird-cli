@@ -7,33 +7,45 @@
  */
 
 const WS_URL = "ws://127.0.0.1:7701";
-const RECONNECT_DELAY = 3000;
+// Reconnect backoff while the bridge is absent: 3s, 6s, 12s, then every 15s. Cuts idle wakeups
+// without making a freshly started bridge wait long for the extension.
+const RECONNECT_BASE_MS = 3000;
+const RECONNECT_MAX_MS = 15000;
+// Max per-message operations (each one or two messenger.* calls) in flight across all requests.
+const IPC_CONCURRENCY = 8;
+const BASE64_CHUNK_SIZE = 0x8000;
 
 let ws = null;
 let reconnectTimer = null;
+let reconnectDelay = RECONNECT_BASE_MS;
+let ipcInFlight = 0;
+const ipcQueue = [];
 
 // ─── WebSocket Connection ───────────────────────────────────────────
 
 function connect() {
-  if (ws && ws.readyState === WebSocket.OPEN) return;
+  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
 
+  let socket;
   try {
-    ws = new WebSocket(WS_URL);
+    socket = new WebSocket(WS_URL);
   } catch (err) {
     console.log("[tb-ai] WebSocket create failed:", err.message);
     scheduleReconnect();
     return;
   }
+  ws = socket;
 
-  ws.onopen = () => {
+  socket.onopen = () => {
     console.log("[tb-ai] Connected to bridge");
+    reconnectDelay = RECONNECT_BASE_MS;
     if (reconnectTimer) {
       clearTimeout(reconnectTimer);
       reconnectTimer = null;
     }
   };
 
-  ws.onmessage = async (event) => {
+  socket.onmessage = async (event) => {
     let request;
     try {
       request = JSON.parse(event.data);
@@ -43,45 +55,62 @@ function connect() {
 
     try {
       const result = await handleRequest(request);
-      ws.send(JSON.stringify({ id: request.id, result }));
+      socket.send(JSON.stringify({ id: request.id, result }));
     } catch (err) {
-      ws.send(JSON.stringify({
+      socket.send(JSON.stringify({
         id: request.id,
         error: { message: err.message, stack: err.stack },
       }));
     }
   };
 
-  ws.onclose = () => {
+  // Only clear `ws` if it is still this socket: a late event from a replaced socket must not
+  // drop the current connection.
+  socket.onclose = () => {
     console.log("[tb-ai] Disconnected from bridge");
-    ws = null;
+    if (ws === socket) ws = null;
     scheduleReconnect();
   };
 
-  ws.onerror = (err) => {
+  socket.onerror = () => {
     console.log("[tb-ai] WebSocket error, will reconnect");
-    ws = null;
+    if (ws === socket) ws = null;
     scheduleReconnect();
   };
 }
 
 function scheduleReconnect() {
   if (reconnectTimer) return;
+  const delay = reconnectDelay;
+  reconnectDelay = Math.min(reconnectDelay * 2, RECONNECT_MAX_MS);
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
     connect();
-  }, RECONNECT_DELAY);
+  }, delay);
 }
 
 // Start connection
 connect();
+
+// Coming back from idle or sleep: retry right away instead of waiting out the backoff.
+if (typeof messenger !== "undefined" && messenger.idle?.onStateChanged) {
+  messenger.idle.onStateChanged.addListener((state) => {
+    if (state !== "active") return;
+    reconnectDelay = RECONNECT_BASE_MS;
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+    connect();
+  });
+}
 
 // ─── Request Router ─────────────────────────────────────────────────
 
 async function handleRequest({ method, path, body }) {
   // Health
   if (path === "/health") {
-    return { status: "ok", version: "2.0.0", thunderbird: true };
+    return { status: "ok", version: messenger.runtime.getManifest().version, thunderbird: true };
   }
 
   // ─── Accounts ───────────────────────────────────────────────────
@@ -174,13 +203,14 @@ async function handleRequest({ method, path, body }) {
     const { query, accountId, fromAddress, toAddress, subject,
             unreadOnly, flagged, limit = 25, fromDate, toDate,
             folderId, tag, hasAttachment, sizeMin, sizeMax,
-            includeJunk } = body || {};
+            includeJunk, headerMessageId } = body || {};
     const q = {};
     if (query) q.body = query;
     if (accountId) q.accountId = accountId;
     if (fromAddress) q.author = fromAddress;
     if (toAddress) q.recipients = toAddress;
     if (subject) q.subject = subject;
+    if (headerMessageId) q.headerMessageId = stripAngleBrackets(headerMessageId);
     if (unreadOnly) q.unread = true;
     if (flagged !== undefined) q.flagged = flagged;
     if (fromDate) q.fromDate = new Date(fromDate);
@@ -238,17 +268,17 @@ async function handleRequest({ method, path, body }) {
 
   if (path === "/messages/read-batch" && method === "POST") {
     const { messageIds } = body || {};
-    const results = [];
-    for (const id of messageIds) {
+    return await mapWithIpcLimit(messageIds || [], async (id) => {
       try {
-        const msg = await messenger.messages.get(id);
-        const full = await messenger.messages.getFull(id);
-        results.push({ ...formatMessage(msg), parts: extractParts(full) });
+        const [msg, full] = await Promise.all([
+          messenger.messages.get(id),
+          messenger.messages.getFull(id),
+        ]);
+        return { ...formatMessage(msg), parts: extractParts(full) };
       } catch (e) {
-        results.push({ id, error: e.message });
+        return { id, error: e.message };
       }
-    }
-    return results;
+    });
   }
 
   // ─── Fetch (force download) ─────────────────────────────────────
@@ -261,10 +291,7 @@ async function handleRequest({ method, path, body }) {
     if (body.folderId) {
       const folder = await messenger.folders.get(body.folderId, false);
       const result = await collectMessages(() => messenger.messages.list(folder), body.limit || 100);
-      let fetched = 0;
-      for (const msg of result.messages) {
-        try { await messenger.messages.getRaw(msg.id); fetched++; } catch {}
-      }
+      const fetched = await fetchRawAll(result.messages);
       return { fetched, total: result.messages.length };
     }
     return { error: "Provide messageId or folderId" };
@@ -394,10 +421,7 @@ async function handleRequest({ method, path, body }) {
     const { partName } = body || {};
     const file = await messenger.messages.getAttachmentFile(msgId, partName);
     const buffer = await file.arrayBuffer();
-    const bytes = new Uint8Array(buffer);
-    let binary = "";
-    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-    const base64 = btoa(binary);
+    const base64 = bytesToBase64(new Uint8Array(buffer));
     return { name: file.name, size: file.size, contentType: file.type, data: base64 };
   }
 
@@ -405,22 +429,59 @@ async function handleRequest({ method, path, body }) {
   const threadMatch = path.match(/^\/messages\/(\d+)\/thread$/);
   if (threadMatch && method === "GET") {
     const msgId = parseInt(threadMatch[1]);
-    const full = await messenger.messages.getFull(msgId);
-    const refs = (full.headers?.["references"]?.[0] || "").split(/\s+/).filter(Boolean);
-    const inReply = full.headers?.["in-reply-to"]?.[0] || "";
-    const msgHdrId = full.headers?.["message-id"]?.[0] || "";
-    const ids = new Set([...refs, inReply, msgHdrId].filter(Boolean));
-    const thread = [];
-    for (const hdrId of ids) {
+    const msg = await messenger.messages.get(msgId);
+
+    // getFull() does not reliably expose RFC 2822 headers; parse them from the raw source.
+    let ids = new Set();
+    try {
+      const raw = await messenger.messages.getRaw(msgId);
+      if (typeof raw === "string") ids = buildThreadIds(raw);
+    } catch {}
+    if (ids.size === 0) {
       try {
-        const r = await messenger.messages.query({ headerMessageId: hdrId });
-        if (r.messages) {
-          for (const m of r.messages) {
-            if (!thread.find((t) => t.id === m.id)) thread.push(formatMessage(m));
-          }
-        }
-      } catch (e) {}
+        const full = await messenger.messages.getFull(msgId);
+        const header = (name) => full.headers?.[name]?.[0] || "";
+        ids = new Set([
+          ...parseReferences(header("references")),
+          ...parseReferences(header("in-reply-to")),
+          stripAngleBrackets(header("message-id")),
+        ].filter(Boolean));
+      } catch {}
     }
+    // messages.query() matches headerMessageId without angle brackets
+    if (msg?.headerMessageId) ids.add(stripAngleBrackets(msg.headerMessageId));
+
+    const seen = new Set();
+    const thread = [];
+    const add = (m, threadMatch) => {
+      if (seen.has(m.id)) return;
+      seen.add(m.id);
+      thread.push({ ...formatMessage(m), threadMatch });
+    };
+
+    // Upstream: every message named in References / In-Reply-To
+    const pages = await mapWithIpcLimit([...ids], async (hdrId) => {
+      try {
+        return (await messenger.messages.query({ headerMessageId: hdrId }))?.messages || [];
+      } catch {
+        return [];
+      }
+    });
+    for (const messages of pages) messages.forEach((m) => add(m, "references"));
+
+    // Downstream: replies that don't reference this message yet share its normalized subject.
+    // Thunderbird's subject query is a substring match, so keep exact matches only; these are
+    // heuristic, so they are labelled and junk is excluded.
+    const norm = normalizeSubject(msg?.subject || "");
+    if (norm) {
+      try {
+        const r = await messenger.messages.query({ subject: norm, junk: false });
+        for (const m of r?.messages || []) {
+          if (normalizeSubject(m.subject || "").toLowerCase() === norm.toLowerCase()) add(m, "subject");
+        }
+      } catch {}
+    }
+
     thread.sort((a, b) => new Date(a.date) - new Date(b.date));
     return { thread, count: thread.length };
   }
@@ -568,10 +629,11 @@ async function handleRequest({ method, path, body }) {
   // ─── Recent ─────────────────────────────────────────────────────
 
   if (path === "/recent" && method === "POST") {
-    const { hours = 24, limit = 50 } = body || {};
+    const { hours = 24, limit = 50, accountId, unreadOnly = false } = body || {};
     const since = new Date(Date.now() - hours * 60 * 60 * 1000);
     const result = await collectMessages(
-      () => messenger.messages.query({ fromDate: since }), limit
+      () => messenger.messages.query({ fromDate: since }), limit,
+      { unreadOnly, accountId: accountId || null }
     );
     result.messages.sort((a, b) => new Date(b.date) - new Date(a.date));
     result.since = since.toISOString();
@@ -669,26 +731,18 @@ async function handleRequest({ method, path, body }) {
   if (path === "/bulk/tag" && method === "POST") {
     const folder = await messenger.folders.get(body.folderId, false);
     const result = await collectMessages(() => messenger.messages.list(folder), body.limit || 100);
-    const filtered = filterBulkMessages(result.messages, body);
-    let tagged = 0;
-    for (const msg of filtered) {
-      const tags = [...(msg.tags || [])];
-      if (!tags.includes(body.tagKey)) {
-        tags.push(body.tagKey);
-        await messenger.messages.update(msg.id, { tags });
-        tagged++;
-      }
-    }
-    return { success: true, tagged };
+    const toTag = filterBulkMessages(result.messages, body)
+      .filter((msg) => !(msg.tags || []).includes(body.tagKey));
+    await mapWithIpcLimit(toTag, (msg) =>
+      messenger.messages.update(msg.id, { tags: [...(msg.tags || []), body.tagKey] })
+    );
+    return { success: true, tagged: toTag.length };
   }
 
   if (path === "/bulk/fetch" && method === "POST") {
     const folder = await messenger.folders.get(body.folderId, false);
     const result = await collectMessages(() => messenger.messages.list(folder), body.limit || 100);
-    let fetched = 0;
-    for (const msg of result.messages) {
-      try { await messenger.messages.getRaw(msg.id); fetched++; } catch {}
-    }
+    const fetched = await fetchRawAll(result.messages);
     return { success: true, fetched, total: result.messages.length };
   }
 
@@ -766,7 +820,7 @@ async function countFolder(folder, stats) {
   }
 }
 
-async function collectMessages(queryFn, limit, { unreadOnly = false, flaggedOnly = false, offset = 0 } = {}) {
+async function collectMessages(queryFn, limit, { unreadOnly = false, flaggedOnly = false, offset = 0, accountId = null } = {}) {
   let page = await queryFn();
   const messages = [];
   let skipped = 0;
@@ -774,6 +828,7 @@ async function collectMessages(queryFn, limit, { unreadOnly = false, flaggedOnly
     for (const msg of page.messages) {
       if (unreadOnly && msg.read) continue;
       if (flaggedOnly && !msg.flagged) continue;
+      if (accountId && msg.folder?.accountId !== accountId) continue;
       if (skipped < offset) { skipped++; continue; }
       messages.push(formatMessage(msg));
       if (messages.length >= limit) break;
@@ -805,4 +860,50 @@ function filterBulkMessages(messages, filters) {
 function priorityToValue(priority) {
   const map = { highest: "1", high: "2", normal: "3", low: "4", lowest: "5" };
   return map[priority] || "3";
+}
+
+function bytesToBase64(bytes) {
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += BASE64_CHUNK_SIZE) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + BASE64_CHUNK_SIZE));
+  }
+  return btoa(binary);
+}
+
+/** Force-download each message; resolves to how many succeeded. */
+async function fetchRawAll(messages) {
+  const results = await mapWithIpcLimit(messages, async (msg) => {
+    try {
+      await messenger.messages.getRaw(msg.id);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+  return results.filter(Boolean).length;
+}
+
+/**
+ * Map items through an async fn, preserving order, with at most IPC_CONCURRENCY calls in
+ * flight across every concurrent request so bulk work can't flood Thunderbird.
+ */
+function mapWithIpcLimit(items, fn) {
+  return Promise.all(items.map((item) => new Promise((resolve, reject) => {
+    ipcQueue.push({ run: () => fn(item), resolve, reject });
+    drainIpcQueue();
+  })));
+}
+
+function drainIpcQueue() {
+  while (ipcInFlight < IPC_CONCURRENCY && ipcQueue.length > 0) {
+    const { run, resolve, reject } = ipcQueue.shift();
+    ipcInFlight++;
+    Promise.resolve()
+      .then(run)
+      .then(resolve, reject)
+      .finally(() => {
+        ipcInFlight--;
+        drainIpcQueue();
+      });
+  }
 }

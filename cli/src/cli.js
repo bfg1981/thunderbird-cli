@@ -7,15 +7,18 @@
  * All output is JSON by default.
  */
 
+import { createRequire } from "module";
 import { Command } from "commander";
 import { api, output, outputError, getConfig, parseRelativeDate } from "./client.js";
+
+const { version } = createRequire(import.meta.url)("../package.json");
 
 const program = new Command();
 
 program
   .name("tb")
   .description("AI-agent email management via Thunderbird")
-  .version("1.0.0")
+  .version(version)
   .option("-f, --format <type>", "output format: json, compact, table", "json")
   .option("--fields <csv>", "comma-separated fields to include in output")
   .option("--compact", "strip null values and minimize output")

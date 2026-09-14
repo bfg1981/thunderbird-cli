@@ -33,9 +33,19 @@ jobs:
           node -c mcp/src/server.js
           node -c mcp/src/tools.js
           node -c extension/src/background.js
+          node -c extension/src/thread-utils.js
 
       - name: Run CLI/bridge integration tests (mock)
         run: npm test
+
+      - name: Run bridge authentication tests (real bridge process)
+        run: npm run test:bridge-auth
+
+      - name: Run bridge browser-origin tests (real bridge process)
+        run: npm run test:bridge-security
+
+      - name: Run extension background-script tests (mocked messenger API)
+        run: npm run test:extension
 
       - name: Run MCP server integration tests (mock)
         run: npm run test:mcp

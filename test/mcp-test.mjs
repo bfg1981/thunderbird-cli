@@ -75,6 +75,7 @@ function handle({ method, path, body }) {
       total: 1,
       offset: 0,
       hasMore: false,
+      _body: body,
     };
   if (path === "/messages/list")
     return {
@@ -337,6 +338,21 @@ test(
     limit: 5,
   }),
   (r) => r.messages !== undefined
+);
+test(
+  "email_search with filters and no query",
+  await client.callTool("email_search", { subject: "invoice", unread: true, limit: 5 }),
+  (r) => r.messages !== undefined && !("query" in r._body) && r._body.subject === "invoice"
+);
+test(
+  "email_search without query or filters returns INVALID_ARGS",
+  await client.callTool("email_search", {}),
+  (r) => r.code === "INVALID_ARGS"
+);
+test(
+  "email_search with whitespace-only query and no filters returns INVALID_ARGS",
+  await client.callTool("email_search", { query: "   ", includeJunk: true }),
+  (r) => r.code === "INVALID_ARGS"
 );
 
 test(

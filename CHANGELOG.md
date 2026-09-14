@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-09-14
+
+npm packages `thunderbird-cli`, `thunderbird-cli-bridge`, `thunderbird-cli-mcp` 1.1.0; Thunderbird extension 2.1.0.
+
+### Security
+- Bridge rejects requests from web pages in the user's browser: HTTP `Origin` outside `TB_BRIDGE_CORS_ORIGINS`, non-local `Host` headers (DNS rebinding; extend with `TB_BRIDGE_ALLOWED_HOSTS`), and WebSocket handshakes from web origins that could take over the extension slot. Previously a page could blindly `POST /compose` with `send: true`.
+- Optional `TB_AUTH_TOKEN` enforcement on the bridge HTTP listener (#21).
+- Dependencies patched for all open Dependabot alerts: ws 8.21.3, adm-zip 0.6.1, hono 4.13.7, @hono/node-server 1.19.17, fast-uri 3.1.7, qs 6.16.0, body-parser 2.3.0, ip-address 10.7.0, express-rate-limit 8.7.0.
+
+### Fixed
+- `tb thread` returned an empty thread: headers are now parsed from the raw message and Message-IDs queried without angle brackets (#4). Replies matched only by subject are labelled `threadMatch: "subject"`.
+- `tb recent --account` and `--unread` were ignored by the extension (#4).
+
+### Changed
+- Extension reconnects with backoff (3s → 15s cap) and immediately on return from idle; bridge drops unresponsive extension sockets via ping/pong (#20). Extension now requests the `idle` permission.
+- `read-batch`, bulk tag/fetch, folder fetch and thread lookups run with bounded parallelism; attachment base64 encoding is chunked (#20).
+- MCP `email_search` accepts filters without a text query (#20).
+- `tb health` / `GET /health` reports the loaded extension's real version instead of a fixed "2.0.0".
+- Bridge explains a port already in use at startup instead of crashing.
+
 ## [1.0.2] — 2026-04-18
 
 ### Added
