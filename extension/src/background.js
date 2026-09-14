@@ -110,7 +110,7 @@ if (typeof messenger !== "undefined" && messenger.idle?.onStateChanged) {
 async function handleRequest({ method, path, body }) {
   // Health
   if (path === "/health") {
-    return { status: "ok", version: "2.0.0", thunderbird: true };
+    return { status: "ok", version: messenger.runtime.getManifest().version, thunderbird: true };
   }
 
   // ─── Accounts ───────────────────────────────────────────────────

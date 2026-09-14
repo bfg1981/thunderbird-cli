@@ -26,15 +26,19 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 
+import { createRequire } from "module";
+
 import { api } from "./client.js";
 import { tools } from "./tools.js";
+
+const { version } = createRequire(import.meta.url)("../package.json");
 
 // ─── Server setup ──────────────────────────────────────────────────
 
 const server = new Server(
   {
     name: "thunderbird-cli",
-    version: "1.0.0",
+    version,
   },
   {
     capabilities: {

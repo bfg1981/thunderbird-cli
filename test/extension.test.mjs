@@ -67,6 +67,7 @@ const store = new Map();
 const queryHandlers = [];
 
 const messenger = {
+  runtime: { getManifest: () => manifest },
   idle: { onStateChanged: { addListener: (fn) => idleListeners.push(fn) } },
   folders: { get: async (id) => ({ id, accountId: "acct1" }) },
   messages: {
@@ -165,6 +166,7 @@ test("active while connected does not open a second socket", lastSocket() === st
 current.onmessage({ data: JSON.stringify({ id: "r1", method: "GET", path: "/health" }) });
 await new Promise((r) => setImmediate(r));
 test("requests are answered on the socket they arrived on", current.sent[0]?.id === "r1" && current.sent[0]?.result?.status === "ok");
+test("health reports the manifest version", current.sent[0]?.result?.version === manifest.version);
 
 // ─── Thread ─────────────────────────────────────────────────────────
 
