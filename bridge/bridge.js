@@ -19,6 +19,8 @@
  *   TB_BRIDGE_ALLOWED_HOSTS   extra comma-separated Host header names to accept, in addition to
  *                             IP literals, localhost, *.localhost and *.internal
  *   TB_BRIDGE_WS_HEARTBEAT_MS WebSocket ping interval used to drop dead extension sockets (default: 30000)
+ *   TB_BRIDGE_WS_TAKEOVER_MS  how long a connected extension has to answer a ping before a new
+ *                             connection may replace it (default: 2000)
  *
  * Per-request override: HTTP clients can pass `X-TB-Timeout: <ms>` header.
  */
@@ -32,6 +34,7 @@ const HTTP_PORT = parseInt(process.argv.find((_, i, a) => a[i - 1] === "--port")
 const WS_PORT = parseInt(process.argv.find((_, i, a) => a[i - 1] === "--ws-port") || "7701");
 const DEFAULT_TIMEOUT = parseInt(process.env.TB_BRIDGE_TIMEOUT || "120000");
 const HEARTBEAT_INTERVAL_MS = parseInt(process.env.TB_BRIDGE_WS_HEARTBEAT_MS || "30000");
+const TAKEOVER_PROBE_MS = parseInt(process.env.TB_BRIDGE_WS_TAKEOVER_MS || "2000");
 const CORS_ALLOWED_ORIGINS = new Set(
   (process.env.TB_BRIDGE_CORS_ORIGINS || `http://127.0.0.1:${HTTP_PORT},http://localhost:${HTTP_PORT}`)
     .split(",")
@@ -130,12 +133,43 @@ const wss = new WebSocketServer({
 });
 
 wss.on("connection", (ws) => {
-  console.log("[bridge] Extension connected");
-  extensionSocket = ws;
   ws.isAlive = true;
   ws.on("pong", () => {
     ws.isAlive = true;
   });
+
+  const current = extensionSocket;
+  if (!current || current.readyState !== 1) {
+    attachExtension(ws);
+    return;
+  }
+
+  // The slot is taken. Hand it over only if the connected extension stops answering a ping
+  // (e.g. a half-open socket after sleep); otherwise any local process could silently take the
+  // slot and read or forge every request.
+  let answered = false;
+  const onPong = () => {
+    answered = true;
+  };
+  current.once("pong", onPong);
+  current.ping();
+  setTimeout(() => {
+    current.off("pong", onPong);
+    if (ws.readyState !== 1) return;
+    if (answered && current.readyState === 1) {
+      console.error("[bridge] Rejected another extension connection: the connected extension is still responding");
+      ws.close(1008, "An extension is already connected");
+      return;
+    }
+    console.log("[bridge] Connected extension is unresponsive; replacing it");
+    current.terminate();
+    attachExtension(ws);
+  }, TAKEOVER_PROBE_MS);
+});
+
+function attachExtension(ws) {
+  console.log("[bridge] Extension connected");
+  extensionSocket = ws;
 
   ws.on("message", (data) => {
     try {
@@ -159,7 +193,7 @@ wss.on("connection", (ws) => {
     console.log("[bridge] Extension disconnected");
     if (extensionSocket === ws) extensionSocket = null;
   });
-});
+}
 
 // Terminate sockets that stop answering pings (e.g. after the host slept), so requests fail
 // fast with EXTENSION_DISCONNECTED instead of hanging until the per-request timeout.

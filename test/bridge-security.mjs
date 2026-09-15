@@ -174,6 +174,41 @@ await withBridge({}, async () => {
   legit.ws.close();
 });
 
+// ─── Extension slot (#22) ───────────────────────────────────────────
+
+console.log("\n\x1b[1mExtension slot\x1b[0m");
+const closeCode = (ws, ms = 2000) => new Promise((resolve) => {
+  if (ws.readyState === WebSocket.CLOSED) return resolve("closed");
+  const t = setTimeout(() => resolve("still open"), ms);
+  ws.on("close", (code) => { clearTimeout(t); resolve(code); });
+});
+
+await withBridge({ TB_BRIDGE_WS_TAKEOVER_MS: "200" }, async () => {
+  const first = await connectExtension();
+  const intruder = await connectExtension();
+  test("second connection is closed while the extension responds", await closeCode(intruder.ws), 1008);
+  const routed = await http("POST", "/messages/search", { body: "{}" });
+  test("requests still go to the original extension", routed.json?.echoed === "/messages/search" && first.received.length === 1 && intruder.received.length === 0, true);
+  first.ws.close();
+  await sleep(100);
+  const after = await connectExtension();
+  await sleep(50);
+  test("slot is free again once the extension disconnects", await extensionStatus(), "connected");
+  const routedAfter = await http("POST", "/messages/search", { body: "{}" });
+  test("reconnected extension receives requests", routedAfter.json?.echoed === "/messages/search" && after.received.length === 1, true);
+  after.ws.close();
+});
+
+await withBridge({ TB_BRIDGE_WS_TAKEOVER_MS: "200" }, async () => {
+  const stale = await connectExtension({ autoPong: false });
+  const fresh = await connectExtension();
+  test("replacement stays open when the old socket is unresponsive", await closeCode(fresh.ws, 600), "still open");
+  const routed = await http("POST", "/messages/search", { body: "{}" });
+  test("requests go to the replacement", routed.json?.echoed === "/messages/search" && fresh.received.length === 1 && stale.received.length === 0, true);
+  test("unresponsive socket was terminated", await closeCode(stale.ws, 500) !== "still open", true);
+  fresh.ws.close();
+});
+
 // ─── WebSocket heartbeat ────────────────────────────────────────────
 
 console.log("\n\x1b[1mHeartbeat\x1b[0m");
