@@ -217,13 +217,13 @@ wss.on("close", () => {
 function forwardToExtension(method, path, body, timeoutMs = DEFAULT_TIMEOUT) {
   return new Promise((resolve, reject) => {
     if (!extensionSocket || extensionSocket.readyState !== 1) {
-      reject({ message: "Thunderbird extension not connected. Is Thunderbird running?" });
+      reject({ message: "Thunderbird extension not connected. Is Thunderbird running?", code: "EXTENSION_DISCONNECTED" });
       return;
     }
     const id = randomUUID();
     const timer = setTimeout(() => {
       pending.delete(id);
-      reject({ message: `Request timed out (${Math.round(timeoutMs / 1000)}s)` });
+      reject({ message: `Request timed out (${Math.round(timeoutMs / 1000)}s)`, code: "TIMEOUT" });
     }, timeoutMs);
     pending.set(id, { resolve, reject, timer });
     extensionSocket.send(JSON.stringify({ id, method, path, body }));
@@ -325,9 +325,11 @@ const httpServer = createServer(async (req, res) => {
     res.writeHead(200);
     res.end(JSON.stringify(result));
   } catch (err) {
-    const status = err.message?.includes("not connected") ? 503 : 500;
+    // Always name the failure: a timeout must never look like an empty result to a client.
+    const code = err.code || "THUNDERBIRD_ERROR";
+    const status = code === "EXTENSION_DISCONNECTED" ? 503 : code === "TIMEOUT" ? 504 : 500;
     res.writeHead(status);
-    res.end(JSON.stringify({ error: err.message || "Unknown error" }));
+    res.end(JSON.stringify({ error: err.message || "Unknown error", code }));
   }
 });
 

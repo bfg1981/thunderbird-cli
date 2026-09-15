@@ -225,6 +225,22 @@ await withBridge({ TB_BRIDGE_WS_HEARTBEAT_MS: "150" }, async () => {
   test("unresponsive socket is terminated", await extensionStatus(), "disconnected");
 });
 
+// ─── Error codes (#12) ──────────────────────────────────────────────
+
+console.log("\n\x1b[1mError codes\x1b[0m");
+await withBridge({}, async () => {
+  const noExt = await http("POST", "/messages/search", { body: "{}" });
+  test("no extension → 503", noExt.status, 503);
+  test("no extension → EXTENSION_DISCONNECTED code", noExt.json?.code, "EXTENSION_DISCONNECTED");
+  const silent = new WebSocket(`ws://127.0.0.1:${WS_PORT}`);
+  await new Promise((r) => silent.on("open", r));
+  await sleep(50);
+  const slow = await http("POST", "/messages/search", { headers: { "X-TB-Timeout": "200" }, body: "{}" });
+  test("extension timeout → 504", slow.status, 504);
+  test("extension timeout → TIMEOUT code (never an empty result)", slow.json?.code === "TIMEOUT" && slow.json?.messages === undefined, true);
+  silent.close();
+});
+
 // ─── Startup: port already taken ────────────────────────────────────
 
 console.log("\n\x1b[1mPort in use\x1b[0m");

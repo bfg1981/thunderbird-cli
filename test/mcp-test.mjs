@@ -160,6 +160,11 @@ async function startBridge() {
         try {
           pb = JSON.parse(b);
         } catch {}
+      if (req.url === "/messages/search" && pb?.query === "__timeout__") {
+        res.writeHead(504);
+        res.end(JSON.stringify({ error: "Request timed out (120s)", code: "TIMEOUT" }));
+        return;
+      }
       try {
         const result = await new Promise((resolve, reject) => {
           if (!extSock || extSock.readyState !== 1) {
@@ -343,6 +348,16 @@ test(
   "email_search with filters and no query",
   await client.callTool("email_search", { subject: "invoice", unread: true, limit: 5 }),
   (r) => r.messages !== undefined && !("query" in r._body) && r._body.subject === "invoice"
+);
+test(
+  "email_search passes searchMode through",
+  await client.callTool("email_search", { query: "x", searchMode: "body" }),
+  (r) => r._body?.searchMode === "body"
+);
+test(
+  "email_search timeout is reported as TIMEOUT with 'results unknown', not as empty",
+  await client.callTool("email_search", { query: "__timeout__" }),
+  (r) => r.code === "TIMEOUT" && /UNKNOWN, not empty/.test(r.error) && r.messages === undefined
 );
 test(
   "email_search without query or filters returns INVALID_ARGS",

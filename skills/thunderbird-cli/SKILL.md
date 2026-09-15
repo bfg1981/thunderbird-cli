@@ -219,6 +219,8 @@ The `tb-bridge` daemon isn't running. Ask the user to run `tb-bridge` in a termi
 Thunderbird isn't open, or the extension hasn't connected yet. Ask the user to open Thunderbird. It reconnects within 3 seconds.
 
 ### "Tool returns TIMEOUT"
+A timed-out search means the results are **unknown**, not that nothing matched — never report "not found" after a TIMEOUT. For `email_search`, narrow with `since`/`until` or `folderId`, and keep the default `searchMode: "fulltext"` (the `body` mode scans messages and is much slower). If full-text search finds nothing that should exist, Thunderbird's Global Search indexer may be off (Settings → General).
+
 IMAP sync may be slow on first run with many accounts. Retry once after ~10 seconds. If it keeps timing out, suggest the user run `tb sync --account <name>` from the CLI to force a manual sync.
 
 ### "NOT_FOUND on account"

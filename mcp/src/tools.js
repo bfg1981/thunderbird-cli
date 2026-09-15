@@ -53,7 +53,13 @@ export const tools = [
       properties: {
         query: {
           type: "string",
-          description: "Full-text search query (searches body). Optional when at least one filter is given",
+          description: "Full-text search query. Optional when at least one filter is given",
+        },
+        searchMode: {
+          type: "string",
+          enum: ["fulltext", "body"],
+          description:
+            "fulltext (default): Thunderbird's search index over subject, body and author — fast on large mailboxes, needs Global Search enabled in Thunderbird. body: scans message bodies directly — slow, may time out on big folders.",
         },
         accountId: { type: "string", description: "Limit to specific account" },
         folderId: { type: "string", description: "Limit to specific folder" },
@@ -93,6 +99,7 @@ export const tools = [
       }
       const body = { limit: args.limit || 25 };
       if (query) body.query = query;
+      if (args.searchMode) body.searchMode = args.searchMode;
       if (args.accountId) body.accountId = args.accountId;
       if (args.folderId) body.folderId = args.folderId;
       if (args.from) body.fromAddress = args.from;
@@ -107,7 +114,15 @@ export const tools = [
       if (args.sizeMin) body.sizeMin = args.sizeMin;
       if (args.sizeMax) body.sizeMax = args.sizeMax;
       if (args.includeJunk) body.includeJunk = true;
-      return await api("POST", "/messages/search", body);
+      try {
+        return await api("POST", "/messages/search", body);
+      } catch (err) {
+        if (err.code === "TIMEOUT") {
+          err.message =
+            "Search timed out before finishing — results are UNKNOWN, not empty. Narrow it with since/until or folderId, or use searchMode \"fulltext\".";
+        }
+        throw err;
+      }
     },
   },
 

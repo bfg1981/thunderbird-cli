@@ -203,9 +203,13 @@ async function handleRequest({ method, path, body }) {
     const { query, accountId, fromAddress, toAddress, subject,
             unreadOnly, flagged, limit = 25, fromDate, toDate,
             folderId, tag, hasAttachment, sizeMin, sizeMax,
-            includeJunk, headerMessageId } = body || {};
+            includeJunk, headerMessageId, searchMode = "fulltext" } = body || {};
     const q = {};
-    if (query) q.body = query;
+    // fullText uses Thunderbird's global search index (subject, body, author) and is fast on
+    // large mailboxes; body scans message bodies and can time out there.
+    let mode = query ? (searchMode === "body" ? "body" : "fulltext") : null;
+    if (mode === "fulltext") q.fullText = query;
+    if (mode === "body") q.body = query;
     if (accountId) q.accountId = accountId;
     if (fromAddress) q.author = fromAddress;
     if (toAddress) q.recipients = toAddress;
@@ -219,9 +223,18 @@ async function handleRequest({ method, path, body }) {
     if (hasAttachment) q.attachment = true;
     if (!includeJunk) q.junk = false;
 
-    const result = await collectMessages(
-      () => messenger.messages.query(q), limit
-    );
+    let result;
+    try {
+      result = await collectMessages(() => messenger.messages.query(q), limit);
+    } catch (e) {
+      if (mode !== "fulltext") throw e;
+      // Older Thunderbird without fullText support: fall back to a body scan.
+      delete q.fullText;
+      q.body = query;
+      mode = "body";
+      result = await collectMessages(() => messenger.messages.query(q), limit);
+    }
+    if (mode) result.searchMode = mode;
 
     // Client-side filtering for tag, sizeMin, sizeMax
     if (tag || sizeMin || sizeMax) {

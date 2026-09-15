@@ -246,6 +246,20 @@ await handle("POST", "/messages/search", { headerMessageId: "<abc@host>" });
 test("headerMessageId forwarded to query without brackets", calls.query[0]?.headerMessageId === "abc@host");
 test("junk still excluded by default", calls.query[0]?.junk === false);
 
+calls.query.length = 0;
+const ft = await handle("POST", "/messages/search", { query: "invoice" });
+test("text query uses the fullText index by default", calls.query[0]?.fullText === "invoice" && calls.query[0]?.body === undefined && ft.searchMode === "fulltext");
+calls.query.length = 0;
+const bodyScan = await handle("POST", "/messages/search", { query: "invoice", searchMode: "body" });
+test("searchMode body scans bodies", calls.query[0]?.body === "invoice" && calls.query[0]?.fullText === undefined && bodyScan.searchMode === "body");
+calls.query.length = 0;
+queryHandlers.unshift((q) => { if (q.fullText) throw new Error("fullText unsupported"); });
+const fallback = await handle("POST", "/messages/search", { query: "invoice" });
+queryHandlers.shift();
+test("falls back to a body scan when fullText is unsupported", calls.query.at(-1)?.body === "invoice" && fallback.searchMode === "body");
+const filtersOnly = await handle("POST", "/messages/search", { subject: "x" });
+test("filter-only search reports no searchMode", filtersOnly.searchMode === undefined);
+
 // ─── Read batch / bulk ──────────────────────────────────────────────
 
 console.log("\n\x1b[1mBatch and bulk\x1b[0m");
