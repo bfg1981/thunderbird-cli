@@ -52,7 +52,7 @@ Use these; don't reach for the 38-command CLI unless the user explicitly asks fo
 | `email_compose` | New message. `mode: draft` / `open` / `send`. Defaults to `draft` | ✅ draft by default |
 | `email_reply` | Reply to a message. Same modes. Defaults to `draft` | ✅ draft by default |
 | `email_forward` | Forward to a new recipient. Same modes. Defaults to `draft` | ✅ draft by default |
-| `email_mark` | Set read / unread / flagged / unflagged / junk / not-junk (batch supported) | ✅ reversible |
+| `email_mark` | Set read / unread / flagged / unflagged / junk / not-junk; add/remove tags (`addTags`, `removeTags`) or replace them (`tags`) (batch supported) | ✅ reversible |
 | `email_archive` | `operation: archive / move / delete`. `delete` requires `permanent` + `confirm` | ⚠️ confirm for permanent |
 | `email_attachments` | List attachments, or download one (single or `--all`) | ✅ read-only |
 | `email_folders` | List folders, get folder info, trigger sync | ✅ read-only |

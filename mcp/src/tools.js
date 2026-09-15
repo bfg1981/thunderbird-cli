@@ -356,7 +356,7 @@ export const tools = [
   {
     name: "email_mark",
     description:
-      "Update message flags: read/unread, flagged/unflagged, junk/not-junk. Accepts a single ID or array of IDs for batch operations.",
+      "Update message flags and tags: read/unread, flagged/unflagged, junk/not-junk, and IMAP tag keywords (e.g. $label1). Accepts an array of IDs for batch operations. Use addTags/removeTags to change tags without touching the others; `tags` replaces the whole set.",
     inputSchema: {
       type: "object",
       properties: {
@@ -368,17 +368,45 @@ export const tools = [
         read: { type: "boolean", description: "Mark as read (true) or unread (false)" },
         flagged: { type: "boolean", description: "Flag (true) or unflag (false)" },
         junk: { type: "boolean", description: "Mark junk (true) or not-junk (false)" },
+        tags: {
+          type: "array",
+          items: { type: "string" },
+          description: "Replace all tags with exactly these tag keys (use [] to clear). Cannot be combined with addTags/removeTags",
+        },
+        addTags: {
+          type: "array",
+          items: { type: "string" },
+          description: "Tag keys to add, keeping existing tags (see the tags list from email_stats / tb tags)",
+        },
+        removeTags: {
+          type: "array",
+          items: { type: "string" },
+          description: "Tag keys to remove, keeping the others",
+        },
       },
       required: ["messageIds"],
     },
     handler: async (args, api) => {
+      const editsTags = args.addTags?.length || args.removeTags?.length;
+      if (args.tags && editsTags) {
+        throw Object.assign(new Error("Use either tags (replace) or addTags/removeTags, not both"), {
+          code: "INVALID_ARGS",
+        });
+      }
       const props = {};
       if (args.read !== undefined) props.read = args.read;
       if (args.flagged !== undefined) props.flagged = args.flagged;
       if (args.junk !== undefined) props.junk = args.junk;
+      if (args.tags) props.tags = [...new Set(args.tags)];
       const results = [];
       for (const id of args.messageIds) {
-        results.push(await api("POST", "/messages/update", { messageId: id, ...props }));
+        const update = { messageId: id, ...props };
+        if (editsTags) {
+          const current = (await api("GET", `/messages/${id}/headers`)).tags || [];
+          const removed = new Set(args.removeTags || []);
+          update.tags = [...new Set([...current, ...(args.addTags || [])])].filter((t) => !removed.has(t));
+        }
+        results.push(await api("POST", "/messages/update", update));
       }
       return { success: true, updated: results.length };
     },

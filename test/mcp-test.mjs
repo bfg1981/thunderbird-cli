@@ -19,6 +19,7 @@ const MCP_SERVER = join(__dirname, "../mcp/src/server.js");
 const PORT = 19800;
 const WS_PORT = 19801;
 
+const updates = [];
 let passed = 0,
   failed = 0;
 const failures = [];
@@ -103,7 +104,7 @@ function handle({ method, path, body }) {
       parts: { text: "Hello world body text", html: "", attachments: [] },
     };
   if (path?.match(/\/raw$/)) return { raw: "From: a@b.com\nSubject: Test\n\nBody" };
-  if (path?.match(/\/headers$/)) return { id: 1, subject: "Test", author: "a@b.com" };
+  if (path?.match(/\/headers$/)) return { id: 1, subject: "Test", author: "a@b.com", tags: ["$label1", "$label2"] };
   if (path?.match(/\/full$/))
     return { id: 1, subject: "Test", parts: { text: "Hello", html: "<p>Hi</p>", attachments: [] } };
   if (path?.match(/\/check-download$/))
@@ -116,7 +117,7 @@ function handle({ method, path, body }) {
   if (path === "/messages/move") return { success: true, moved: (body?.messageIds || []).length };
   if (path === "/messages/delete") return { success: true, deleted: (body?.messageIds || []).length };
   if (path === "/messages/archive") return { success: true, archived: (body?.messageIds || []).length };
-  if (path === "/messages/update") return { success: true };
+  if (path === "/messages/update") { updates.push(body); return { success: true }; }
   if (path === "/compose")
     return { success: true, action: body?.send ? "sent" : body?.open ? "draft_opened" : "draft_saved" };
   if (path === "/reply") return { success: true, action: body?.send ? "sent" : "draft_saved" };
@@ -450,6 +451,37 @@ test(
   "email_mark read",
   await client.callTool("email_mark", { messageIds: [1], read: true }),
   (r) => r.success
+);
+updates.length = 0;
+test(
+  "email_mark addTags keeps existing tags",
+  await client.callTool("email_mark", { messageIds: [1], addTags: ["$label3", "$label1"] }),
+  (r) => r.success && JSON.stringify(updates.at(-1)?.tags) === JSON.stringify(["$label1", "$label2", "$label3"])
+);
+test(
+  "email_mark removeTags removes only those",
+  await client.callTool("email_mark", { messageIds: [1], removeTags: ["$label2"] }),
+  (r) => r.success && JSON.stringify(updates.at(-1)?.tags) === JSON.stringify(["$label1"])
+);
+test(
+  "email_mark add + remove together",
+  await client.callTool("email_mark", { messageIds: [1], addTags: ["$label4"], removeTags: ["$label1"] }),
+  (r) => r.success && JSON.stringify(updates.at(-1)?.tags) === JSON.stringify(["$label2", "$label4"])
+);
+test(
+  "email_mark tags replaces the set (and [] clears)",
+  await client.callTool("email_mark", { messageIds: [1, 2], tags: [] }),
+  (r) => r.updated === 2 && updates.slice(-2).every((u) => Array.isArray(u.tags) && u.tags.length === 0)
+);
+test(
+  "email_mark read-only change does not touch tags",
+  await client.callTool("email_mark", { messageIds: [1], read: true }),
+  (r) => r.success && !("tags" in updates.at(-1))
+);
+test(
+  "email_mark tags with addTags is INVALID_ARGS",
+  await client.callTool("email_mark", { messageIds: [1], tags: ["$label1"], addTags: ["$label2"] }),
+  (r) => r.code === "INVALID_ARGS"
 );
 test(
   "email_mark batch flagged",
