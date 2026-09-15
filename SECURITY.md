@@ -4,6 +4,12 @@
 ## Based on OWASP 2025 Top 10 for LLM Applications (LLM01: Prompt Injection)
 ## and real-world incidents (EchoLeak CVE-2025-32711, Morris-II worm, LLMail-Inject).
 
+## Reporting a vulnerability
+
+Please report security issues privately via GitHub:
+**[Report a vulnerability](https://github.com/vitalio-sh/thunderbird-cli/security/advisories/new)**
+(Security tab → "Report a vulnerability"). Don't open a public issue for exploitable problems.
+
 ---
 
 ## Threat Model
