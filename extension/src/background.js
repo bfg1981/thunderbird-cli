@@ -244,24 +244,30 @@ async function handleRequest({ method, path, body }) {
             offset = 0, sort, sortOrder = "desc", flagged } = body || {};
     const folder = await messenger.folders.get(folderId, false);
     if (!folder) return { error: "Folder not found" };
-    const result = await collectMessages(
-      () => messenger.messages.list(folder), limit,
-      { unreadOnly, flaggedOnly: flagged || false, offset }
-    );
+    const filters = { unreadOnly, flaggedOnly: flagged || false };
 
-    // Sort results if requested
-    if (sort) {
-      const dir = sortOrder === "asc" ? 1 : -1;
-      result.messages.sort((a, b) => {
-        if (sort === "date") return dir * (new Date(a.date) - new Date(b.date));
-        if (sort === "from") return dir * (a.author || "").localeCompare(b.author || "");
-        if (sort === "subject") return dir * (a.subject || "").localeCompare(b.subject || "");
-        if (sort === "size") return dir * ((a.size || 0) - (b.size || 0));
-        return 0;
-      });
+    if (!sort) {
+      return await collectMessages(
+        () => messenger.messages.list(folder), limit, { ...filters, offset }
+      );
     }
 
-    return result;
+    // Thunderbird lists messages in database order, not by date, so sorting has to see the
+    // whole (filtered) folder before offset/limit are applied — otherwise the "newest" page
+    // is just the first N messages re-ordered.
+    const all = await collectMessages(
+      () => messenger.messages.list(folder), Infinity, { ...filters, offset: 0 }
+    );
+    const dir = sortOrder === "asc" ? 1 : -1;
+    all.messages.sort((a, b) => {
+      if (sort === "date") return dir * (new Date(a.date) - new Date(b.date));
+      if (sort === "from") return dir * (a.author || "").localeCompare(b.author || "");
+      if (sort === "subject") return dir * (a.subject || "").localeCompare(b.subject || "");
+      if (sort === "size") return dir * ((a.size || 0) - (b.size || 0));
+      return 0;
+    });
+    const messages = all.messages.slice(offset, offset + limit);
+    return { messages, total: messages.length, offset, hasMore: offset + limit < all.messages.length };
   }
 
   // ─── Read batch ─────────────────────────────────────────────────
