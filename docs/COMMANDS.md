@@ -94,6 +94,11 @@ tb read-batch <id1,id2,id3>           # read multiple messages at once
 tb thread <messageId>                 # full conversation thread
 ```
 
+Each thread entry carries `threadMatch`: `"references"` when it was found through the
+`References` / `In-Reply-To` headers, or `"subject"` when it was only matched by identical
+normalized subject (later replies that don't reference the message yet). Subject matches are a
+heuristic — treat them with more suspicion.
+
 ## Recent / Timeline
 
 ```bash

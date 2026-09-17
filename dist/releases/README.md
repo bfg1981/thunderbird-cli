@@ -6,6 +6,7 @@ This directory contains **ATN-signed** Thunderbird extension builds. These are t
 
 | File | Version | Signed by | Date |
 |---|---|---|---|
+| `thunderbird_ai_bridge-2.1.0-tb.xpi` | 2.1.0 | addons.thunderbird.net | 2026-09-14 |
 | `thunderbird_ai_bridge-2.0.0-tb.xpi` | 2.0.0 | addons.thunderbird.net | 2026-04-08 |
 
 ## Why these are in git
