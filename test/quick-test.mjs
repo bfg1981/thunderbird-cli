@@ -1,15 +1,18 @@
 #!/usr/bin/env node
 /**
- * Quick test — single process, no subprocess spawning.
- * Directly imports and tests the HTTP client against a mock bridge.
+ * Quick test — exercises the HTTP client and selected CLI parsing against a
+ * mock bridge.
  */
 
 import { createServer } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { randomUUID } from "crypto";
+import { spawn } from "child_process";
+import { fileURLToPath } from "url";
 
 const PORT = 19700;
 const WS_PORT = 19701;
+const CLI = fileURLToPath(new URL("../cli/src/cli.js", import.meta.url));
 let passed = 0, failed = 0;
 
 function handle({ method, path, body }) {
@@ -43,7 +46,20 @@ function handle({ method, path, body }) {
   if (path === "/tags") return [{ key: "$l1", tag: "Important", color: "#FF0000" }];
   if (path === "/tags/create") return { success: true, ...body };
   if (path === "/compose") return { success: true, action: body?.send ? "sent" : body?.open ? "draft_opened" : "draft_saved" };
-  if (path === "/reply") return { success: true, action: body?.send ? "sent" : "draft_saved" };
+  if (path === "/reply") {
+    const excluded = new Set((body?.excludeRecipients || []).map((value) => value.toLowerCase()));
+    const filter = (values) => values.filter((value) => !excluded.has(value.toLowerCase()));
+    return {
+      success: true,
+      action: body?.send ? "sent" : body?.open ? "draft_opened" : "draft_saved",
+      to: filter(body?.to || ["sender@example.com"]),
+      cc: filter(body?.cc || []),
+      bcc: filter(body?.bcc || []),
+      recipientControlApplied: Boolean(body?.to || body?.cc || body?.bcc || excluded.size),
+      recipientsVerified: Boolean(body?.to || body?.cc || body?.bcc || excluded.size),
+      excludedRecipients: [...excluded],
+    };
+  }
   if (path === "/forward") return { success: true, action: body?.send ? "sent" : "draft_saved" };
   if (path === "/stats") return { totalAccounts: 1, totalUnread: 5, totalMessages: 100, accounts: [] };
   if (path === "/recent") return { messages: [], total: 0, since: new Date().toISOString() };
@@ -106,6 +122,30 @@ async function httpCall(method, path, body = null) {
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch(url, opts);
   return await res.json();
+}
+
+async function cliCall(args) {
+  return await new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [CLI, ...args], {
+      env: {
+        ...process.env,
+        TB_BRIDGE_HOST: "127.0.0.1",
+        TB_BRIDGE_PORT: String(PORT),
+      },
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => { stdout += chunk; });
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code !== 0) {
+        reject(new Error(stderr || `CLI exited with ${code}`));
+        return;
+      }
+      try { resolve(JSON.parse(stdout)); } catch (error) { reject(error); }
+    });
+  });
 }
 
 function test(name, result, check) {
@@ -171,6 +211,29 @@ test("POST /compose draft", await httpCall("POST", "/compose", { to: "a@b", subj
 test("POST /compose send", await httpCall("POST", "/compose", { to: "a@b", body: "Hi", send: true }), r => r.action === "sent");
 test("POST /compose open", await httpCall("POST", "/compose", { to: "a@b", body: "Hi", open: true }), r => r.action === "draft_opened");
 test("POST /reply", await httpCall("POST", "/reply", { messageId: 1, body: "Thanks" }), r => r.success);
+test(
+  "POST /reply recipient controls",
+  await httpCall("POST", "/reply", {
+    messageId: 1,
+    body: "Thanks",
+    to: ["kept@example.com", "removed@example.com"],
+    excludeRecipients: ["removed@example.com"],
+  }),
+  r => r.recipientControlApplied && r.to?.[0] === "kept@example.com" &&
+    r.excludedRecipients?.[0] === "removed@example.com",
+);
+test(
+  "CLI reply repeatable recipient controls",
+  await cliCall([
+    "reply", "1", "--body", "Thanks",
+    "--to", "kept@example.com",
+    "--to", "removed@example.com",
+    "--exclude-recipient", "removed@example.com",
+    "--open",
+  ]),
+  r => r.ok && r.data?.action === "draft_opened" && r.data.recipientsVerified &&
+    r.data.to?.length === 1 && r.data.to[0] === "kept@example.com",
+);
 test("POST /forward", await httpCall("POST", "/forward", { messageId: 1, to: "c@d", body: "FYI" }), r => r.success);
 
 console.log("\n\x1b[1mStats & Recent\x1b[0m");

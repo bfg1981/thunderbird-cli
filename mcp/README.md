@@ -21,7 +21,7 @@ Exposes 12 email management tools to Claude Desktop:
 | `email_read` | Read message (5 modes: default, headers, full, raw, check-download) |
 | `email_thread` | Get full conversation thread |
 | `email_compose` | Send/draft new email (default: draft, never auto-sends) |
-| `email_reply` | Reply to message (default: draft) |
+| `email_reply` | Reply with identity and recipient controls (default: draft) |
 | `email_forward` | Forward to new recipient (default: draft) |
 | `email_mark` | Read/flagged/junk flags (batch supported) |
 | `email_archive` | Archive, move, or delete messages |

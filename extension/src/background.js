@@ -479,23 +479,147 @@ async function handleRequest({ method, path, body }) {
   // ─── Reply ──────────────────────────────────────────────────────
 
   if (path === "/reply" && method === "POST") {
+    const {
+      asRecipientList,
+      recipientDetailsMatch,
+      excludeFromRecipientDetails,
+    } = tbRecipientControl;
     const { messageId, body: replyBody, replyAll = false,
+            identityId, to, cc, bcc, excludeRecipients = [],
             send = false, draft = false, open = false } = body;
     const type = replyAll ? "replyToAll" : "replyToSender";
-    const tab = await messenger.compose.beginReply(messageId, type, {
-      isPlainText: true, plainTextBody: replyBody,
-    });
+
+    // Resolve the sender from the original message's account. Without an
+    // explicit identity Thunderbird can fall back to the global default.
+    const original = await messenger.messages.get(messageId);
+    const account = await messenger.accounts.get(original.folder.accountId, true);
+    const accountIdentities = account.identities || [];
+    let selectedIdentityId = identityId;
+    if (selectedIdentityId && !accountIdentities.some((id) => id.id === selectedIdentityId)) {
+      throw new Error("Requested reply identity does not belong to the message account");
+    }
+    if (!selectedIdentityId) {
+      const addressedRecipients = [
+        ...(original.recipients || []),
+        ...(original.ccList || []),
+        ...(original.bccList || []),
+      ].map((recipient) => String(recipient).toLowerCase()).join("\n");
+      const matchingIdentity = accountIdentities.find((id) =>
+        id.email && addressedRecipients.includes(id.email.toLowerCase())
+      );
+      selectedIdentityId = matchingIdentity?.id || accountIdentities[0]?.id;
+    }
+
+    // Let Thunderbird establish the reply relationship and generate the
+    // configured signature and quotation before inserting the supplied text.
+    const details = { isPlainText: true };
+    if (selectedIdentityId) details.identityId = selectedIdentityId;
+    const tab = await messenger.compose.beginReply(messageId, type, details);
+    let composeDetails = await messenger.compose.getComposeDetails(tab.id);
+    let quotedOriginal = false;
+
+    if (replyBody) {
+      let generatedBody = composeDetails.plainTextBody || "";
+      quotedOriginal = generatedBody.split(/\r?\n/).some((line) =>
+        line.trimStart().startsWith(">")
+      );
+
+      // Some identities are configured not to quote. Preserve any generated
+      // signature, then add a deterministic plain-text quotation fallback.
+      if (!quotedOriginal) {
+        const full = await messenger.messages.getFull(messageId);
+        const originalText = extractParts(full).text.trimEnd();
+        const quotation = originalText.split(/\r?\n/)
+          .map((line) => `> ${line}`)
+          .join("\n");
+        const attribution = `On ${original.date.toLocaleString()}, ${original.author} wrote:`;
+        generatedBody = [generatedBody.trimEnd(), attribution, quotation]
+          .filter(Boolean)
+          .join("\n\n");
+        quotedOriginal = Boolean(originalText);
+      }
+
+      await messenger.compose.setComposeDetails(tab.id, {
+        plainTextBody: `${replyBody.trimEnd()}\n\n${generatedBody}`,
+      });
+      composeDetails = await messenger.compose.getComposeDetails(tab.id);
+    }
+
+    // Recipient controls are applied only after Thunderbird has established the
+    // native reply. Updating address fields does not alter the read-only reply
+    // type or relatedMessageId.
+    const recipientOverrides = {};
+    const hasRecipientOverrides = to !== undefined || cc !== undefined || bcc !== undefined;
+    if (hasRecipientOverrides) {
+      // An explicit override is an exact recipient set. Unspecified fields are
+      // cleared so an inherited CC/BCC address cannot survive unnoticed.
+      recipientOverrides.to = asRecipientList(to);
+      recipientOverrides.cc = asRecipientList(cc);
+      recipientOverrides.bcc = asRecipientList(bcc);
+      await messenger.compose.setComposeDetails(tab.id, recipientOverrides);
+      composeDetails = await messenger.compose.getComposeDetails(tab.id);
+      if (!recipientDetailsMatch(recipientOverrides, composeDetails)) {
+        await messenger.tabs.remove(tab.id);
+        throw new Error("Thunderbird did not apply the exact requested recipient set");
+      }
+    }
+
+    const exclusionResult = excludeFromRecipientDetails(composeDetails, excludeRecipients);
+    if (exclusionResult.excludedRecipients.length) {
+      if (exclusionResult.unmatchedRecipients.length) {
+        await messenger.tabs.remove(tab.id);
+        throw new Error(
+          `Excluded recipient not found: ${exclusionResult.unmatchedRecipients.join(", ")}`,
+        );
+      }
+
+      await messenger.compose.setComposeDetails(tab.id, exclusionResult.recipients);
+      composeDetails = await messenger.compose.getComposeDetails(tab.id);
+      if (!recipientDetailsMatch(exclusionResult.recipients, composeDetails)) {
+        await messenger.tabs.remove(tab.id);
+        throw new Error("Thunderbird did not apply the requested recipient exclusions");
+      }
+    }
+
+    const resolvedRecipients = {
+      to: asRecipientList(composeDetails.to),
+      cc: asRecipientList(composeDetails.cc),
+      bcc: asRecipientList(composeDetails.bcc),
+    };
+    const recipientControlApplied =
+      hasRecipientOverrides || exclusionResult.excludedRecipients.length > 0;
+    if (recipientControlApplied &&
+        resolvedRecipients.to.length + resolvedRecipients.cc.length + resolvedRecipients.bcc.length === 0) {
+      await messenger.tabs.remove(tab.id);
+      throw new Error("Reply recipient controls removed all recipients");
+    }
+    if (recipientControlApplied &&
+        (composeDetails.type !== "reply" || composeDetails.relatedMessageId !== messageId)) {
+      await messenger.tabs.remove(tab.id);
+      throw new Error("Reply relationship was not preserved after applying recipient controls");
+    }
+
+    const verification = {
+      identityId: composeDetails.identityId,
+      type: composeDetails.type,
+      relatedMessageId: composeDetails.relatedMessageId,
+      quotedOriginal,
+      ...resolvedRecipients,
+      recipientControlApplied,
+      recipientsVerified: recipientControlApplied,
+      excludedRecipients: exclusionResult.excludedRecipients,
+    };
     if (send) {
       await messenger.compose.sendMessage(tab.id, { mode: "sendNow" });
-      return { success: true, action: "sent" };
+      return { success: true, action: "sent", ...verification };
     }
     if (open) {
-      return { success: true, action: "draft_opened", tabId: tab.id };
+      return { success: true, action: "draft_opened", tabId: tab.id, ...verification };
     }
     // Default: save as draft and close
     await messenger.compose.saveMessage(tab.id, { mode: "draft" });
     await messenger.tabs.remove(tab.id);
-    return { success: true, action: "draft_saved" };
+    return { success: true, action: "draft_saved", ...verification };
   }
 
   // ─── Forward ────────────────────────────────────────────────────

@@ -129,8 +129,21 @@ If the user mentions "the whole thread", follow with `email_thread id=<id>`.
 email_reply
   id: <id>
   body: "<Y>"
+  from: <identityId>       # optional; otherwise inferred from the message account
+  to: ["<address>"]        # optional exact To replacement
+  cc: ["<address>"]        # optional exact CC replacement
+  bcc: ["<address>"]       # optional exact BCC replacement
+  excludeRecipients: ["<address>"] # optional removals from To/CC/BCC
   mode: "draft"             # ALWAYS default to draft
 ```
+
+Do not add a manual sign-off until identity-specific Thunderbird signature
+settings are known. Replies preserve Thunderbird's native threading and quote.
+When recipient controls are used, verify the returned `to`, `cc`, and `bcc`
+lists and require `recipientsVerified: true` before describing the draft as
+ready. Supplying any exact recipient list
+clears unspecified recipient fields; exclusion alone retains all other native
+reply recipients.
 
 Tell the user: *"I saved the reply as a draft. Open Thunderbird → Drafts to review and send."* Only use `mode: "send"` when the user explicitly says *"send it"*, not just *"reply"*.
 

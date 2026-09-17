@@ -50,6 +50,10 @@ function parseIds(str) {
   return str.split(",").map(id => parseInt(id.trim()));
 }
 
+function collectOption(value, previous) {
+  return previous.concat(value);
+}
+
 // ─── Health ───────────────────────────────────────────────────────────
 
 program
@@ -566,6 +570,16 @@ program
   .option("--body-file <path>", "read reply from file")
   .option("--all", "reply to all")
   .option("--html", "body is HTML")
+  .option("--from <identityId>", "reply from a specific identity")
+  .option("--to <address>", "replace To recipients (repeatable)", collectOption, [])
+  .option("--cc <address>", "replace CC recipients (repeatable)", collectOption, [])
+  .option("--bcc <address>", "replace BCC recipients (repeatable)", collectOption, [])
+  .option(
+    "--exclude-recipient <address>",
+    "exclude an address from To, CC, and BCC (repeatable)",
+    collectOption,
+    [],
+  )
   .option("--draft", "save as draft (default)")
   .option("--open", "open compose window")
   .option("--send", "send immediately")
@@ -582,6 +596,11 @@ program
       body,
       replyAll: opts.all || false,
     };
+    if (opts.from) payload.identityId = opts.from;
+    if (opts.to.length) payload.to = opts.to;
+    if (opts.cc.length) payload.cc = opts.cc;
+    if (opts.bcc.length) payload.bcc = opts.bcc;
+    if (opts.excludeRecipient.length) payload.excludeRecipients = opts.excludeRecipient;
 
     if (opts.send) {
       payload.send = true;
