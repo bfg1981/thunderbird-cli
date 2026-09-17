@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   recipients, with explicit CLI/MCP identity override support.
 - Reply results expose identity and native reply-relation verification metadata.
 
+### Security
+- Updated `adm-zip` to 0.6.0 and `ws` to 8.21.1, and refreshed vulnerable
+  transitive MCP dependencies to patched versions.
+
 ## [1.0.2] — 2026-04-18
 
 ### Added
